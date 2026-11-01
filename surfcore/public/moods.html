@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>情绪曲线</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b0e12;color:#e6e6e6;font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid #1e242b;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:600}
+  .sub{color:#7d8590;font-size:12px}
+  .hint{color:#5d646d;font-size:11px;margin-left:auto}
+  main{padding:14px 18px;max-width:1100px;margin:0 auto}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 10px}
+  .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:#aab2bd;cursor:pointer;
+      padding:2px 6px;border-radius:6px;transition:background .12s,color .12s}
+  .lg:hover{background:#151b24;color:#e6e6e6}
+  .lg.off{opacity:.35}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .wrap{position:relative}
+  /* 高度自适应：嵌在监控台 app 里时容器只有 460 高，固定 360 会溢出 */
+  canvas{width:100%;height:clamp(180px, calc(100vh - 190px), 420px);
+         background:#0e1217;border:1px solid #1e242b;border-radius:12px;
+         display:block;cursor:crosshair;touch-action:none}
+  .tip{position:absolute;pointer-events:none;background:rgba(16,21,28,.96);border:1px solid #2a323d;
+       border-radius:9px;padding:8px 10px;font-size:12px;color:#dfe4ea;min-width:132px;
+       box-shadow:0 8px 22px rgba(0,0,0,.5);opacity:0;transition:opacity .1s;z-index:5;
+       backdrop-filter:blur(6px)}
+  .tip .row{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+  .tip .nm{font-weight:600}
+  .tip .tm{color:#7d8590;font-size:11px;font-variant-numeric:tabular-nums}
+  .tip .vl{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums}
+  .tip .sep{height:1px;background:#232b35;margin:6px 0}
+  .now{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+  .now div{background:#131820;border:1px solid #1e242b;border-radius:10px;padding:8px 12px;min-width:96px}
+  .now .n{font-size:18px;font-weight:600}
+  .now .l{font-size:11px;color:#7d8590}
+  .sleep{color:#f2cf7a}
+  /* 嵌在监控台 app 里时容器只有 ~460 高：把底部「现在」卡片压紧，别溢出 */
+  @media (max-height: 560px){
+    header{padding:8px 14px}
+    main{padding:8px 14px}
+    .legend{margin:4px 0 6px;gap:10px}
+    .now{margin-top:8px;gap:8px}
+    .now div{padding:4px 9px;min-width:70px}
+    .now .n{font-size:14px}
+    .now .l{font-size:10px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>情绪曲线</h1><span class="sub" id="sub">加载中…</span>
+  <span class="hint">滚轮缩放（对着时间轴） · 拖动平移 · 双击复位</span>
+</header>
+<main>
+  <div class="legend" id="legend"></div>
+  <div class="wrap" id="wrap">
+    <canvas id="c"></canvas>
+    <div class="tip" id="tip"></div>
+  </div>
+  <div class="now" id="now"></div>
+</main>
+<script>
+const COLORS = { energy:'#7aa2f7', patience:'#9ece6a', curiosity:'#e0af68', mood:'#f7768e', social:'#bb9af7' };
+const NAMES  = { energy:'精力', patience:'耐心', curiosity:'好奇', mood:'心情', social:'社交' };
+const KEYS = Object.keys(COLORS);
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const sub = document.getElementById('sub');
+const canvas = document.getElementById('c');
+const tip = document.getElementById('tip');
+const wrap = document.getElementById('wrap');
+const PAD = { l: 40, r: 16, t: 14, b: 26 };
+const MIN_SPAN = 30 * 1000;          // 最小看 30 秒
+const PICK_PX = 26;                  // 鼠标离曲线多近才算 hover 到
+
+let points = [];
+let full = null;                     // 全量时间范围 { t0, t1 }
+let view = null;                     // 当前视图 { t0, t1 }
+let hover = null;                    // { key, at, v, cx, cy }
+let hidden = new Set();              // 图例点掉的线
+let dragging = null;
+let raf = 0;
+
+document.getElementById('legend').innerHTML = KEYS.map(k =>
+  `<span class="lg" data-k="${k}"><span class="dot" style="background:${COLORS[k]}"></span>${NAMES[k]}</span>`).join('');
+document.querySelectorAll('.lg').forEach(el => {
+  el.addEventListener('click', () => {
+    const k = el.dataset.k;
+    if (hidden.has(k)) hidden.delete(k); else hidden.add(k);
+    el.classList.toggle('off', hidden.has(k));
+    scheduleDraw();
+  });
+});
+
+async function load() {
+  const hours = 24;
+  const r = await fetch(`/api/monitor/mood-history?hours=${hours}`, { headers: { 'x-console-token': TOKEN } })
+    .then(x => x.json()).catch(() => ({ ok: false }));
+  if (!r.ok) { sub.textContent = '读取失败'; return; }
+  points = r.points || [];
+  const last = points[points.length - 1] || { dims: {} };
+  const spanMin = points.length > 1
+    ? Math.round((points[points.length - 1].at - points[0].at) / 60000) : 0;
+  sub.textContent = `最近 ${hours} 小时 · ${points.length} 个采样 · 约每 ${points.length > 1
+    ? (spanMin / (points.length - 1)).toFixed(0) : '?'} 分钟一个` +
+    (last.asleep ? ' · 睡着' : '');
+  document.getElementById('now').innerHTML = KEYS.map(k => {
+    const v = Math.round(((last.dims || {})[k] || 0) * 100);
+    return `<div><div class="n" style="color:${COLORS[k]}">${v}%</div><div class="l">${NAMES[k]}</div></div>`;
+  }).join('') + (last.asleep ? '<div><div class="n sleep">睡觉中</div><div class="l">醒来会恢复</div></div>' : '');
+
+  if (points.length >= 2) {
+    full = { t0: points[0].at, t1: points[points.length - 1].at };
+    // 用户已经在看某一段就别跳回去
+    if (!view) view = { ...full };
+    clampView();
+  }
+  scheduleDraw();
+}
+
+function clampView() {
+  if (!view || !full) return;
+  const fullSpan = full.t1 - full.t0;
+  let span = Math.min(fullSpan, Math.max(MIN_SPAN, view.t1 - view.t0));
+  let t0 = view.t0;
+  if (t0 < full.t0) t0 = full.t0;
+  if (t0 + span > full.t1) t0 = full.t1 - span;
+  view = { t0, t1: t0 + span };
+}
+
+function scheduleDraw() {
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = 0; draw(); });
+}
+
+function geom() {
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  return { W, H, iw: W - PAD.l - PAD.r, ih: H - PAD.t - PAD.b };
+}
+
+// 注意：像素坐标一律用外面传进来的 iw/ih，别在这里读 clientWidth ——
+// 一帧要算上千个点，每次都读布局会卡成 ppt。
+function xOf(at, iw) { return PAD.l + ((at - view.t0) / (view.t1 - view.t0)) * iw; }
+function yOf(v, ih) { return PAD.t + (1 - Math.max(0, Math.min(1, v))) * ih; }
+
+/** 某条线在时刻 at 的值（按相邻采样线性插值） */
+function valueAt(key, at) {
+  if (!points.length) return null;
+  if (at <= points[0].at) return (points[0].dims || {})[key] ?? 0;
+  const lastI = points.length - 1;
+  if (at >= points[lastI].at) return (points[lastI].dims || {})[key] ?? 0;
+  let lo = 0, hi = lastI;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].at <= at) lo = mid; else hi = mid;
+  }
+  const a = points[lo], b = points[hi];
+  const f = (at - a.at) / (b.at - a.at || 1);
+  const va = (a.dims || {})[key] ?? 0, vb = (b.dims || {})[key] ?? 0;
+  return va + (vb - va) * f;
+}
+
+function fmtTime(at, withSeconds = false) {
+  const d = new Date(at);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (!withSeconds) return `${hh}:${mm}`;
+  return `${hh}:${mm}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
+function draw() {
+  const { W, H, iw, ih } = geom();
+  if (!W || !H) return;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  // 网格 + 纵轴
+  ctx.strokeStyle = '#1b212a'; ctx.fillStyle = '#5d646d'; ctx.font = '10px -apple-system, sans-serif';
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.t + ih * i / 4;
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(W - PAD.r, y); ctx.stroke();
+    ctx.fillText(String(100 - i * 25), 8, y + 3);
+  }
+
+  if (points.length < 2 || !view) {
+    ctx.fillStyle = '#6e7781';
+    ctx.fillText('数据还不够，过一会儿再来', PAD.l + 10, PAD.t + ih / 2);
+    return;
+  }
+
+  // 横轴刻度：跨度大就按小时，小就按分钟/秒
+  const span = view.t1 - view.t0;
+  const ticks = 5;
+  ctx.fillStyle = '#5d646d';
+  for (let i = 0; i <= ticks; i++) {
+    const at = view.t0 + span * i / ticks;
+    const label = span > 6 * 3600e3 ? fmtTime(at) : (span > 60e3 ? fmtTime(at) : fmtTime(at, true));
+    const x = PAD.l + iw * i / ticks;
+    ctx.fillText(label, Math.min(W - PAD.r - 30, Math.max(4, x - 14)), H - 8);
+  }
+
+  const dim = (k) => (hover && hover.key && hover.key !== k) || hidden.has(k);
+  const lastPoint = points[points.length - 1];
+
+  for (const k of KEYS) {
+    if (hidden.has(k)) continue;
+    const isHover = hover && hover.key === k;
+    ctx.save();
+    ctx.globalAlpha = dim(k) ? 0.16 : 1;
+    ctx.strokeStyle = COLORS[k];
+    ctx.lineWidth = isHover ? 2.8 : 1.6;
+    ctx.beginPath();
+    let started = false;
+    for (const p of points) {
+      if (p.at < view.t0 || p.at > view.t1) {
+        // 段外也要接上，免得线断
+        if (!started) continue;
+      }
+      const px = xOf(p.at, iw), py = yOf((p.dims || {})[k] || 0, ih);
+      started ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      started = true;
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 右端小点
+    if (lastPoint.at >= view.t0 && lastPoint.at <= view.t1) {
+      ctx.save();
+      ctx.globalAlpha = dim(k) ? 0.16 : 1;
+      ctx.fillStyle = COLORS[k];
+      ctx.beginPath(); ctx.arc(xOf(lastPoint.at, iw), yOf((lastPoint.dims || {})[k] || 0, ih), 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 放大到够细时，把真实采样点画出来（提醒：数据本身是 5 分钟一个）
+  if (span < 6 * 3600e3) {
+    for (const p of points) {
+      if (p.at < view.t0 || p.at > view.t1) continue;
+      const px = xOf(p.at, iw);
+      for (const k of KEYS) {
+        if (hidden.has(k)) continue;
+        ctx.save();
+        ctx.globalAlpha = dim(k) ? 0.12 : 0.55;
+        ctx.fillStyle = COLORS[k];
+        ctx.beginPath(); ctx.arc(px, yOf((p.dims || {})[k] || 0, ih), 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  // 十字准星
+  if (hover) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(hover.cx, PAD.t); ctx.lineTo(hover.cx, PAD.t + ih); ctx.stroke();
+    ctx.restore();
+
+    for (const k of KEYS) {
+      if (hidden.has(k)) continue;
+      const v = valueAt(k, hover.at);
+      const on = hover.key === k;
+      ctx.save();
+      ctx.globalAlpha = on ? 1 : 0.22;
+      ctx.fillStyle = COLORS[k];
+      ctx.beginPath(); ctx.arc(hover.cx, yOf(v, ih), on ? 4.5 : 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 左上角视图范围提示
+  ctx.fillStyle = '#4d545e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.fillText(`${fmtTime(view.t0, true)} — ${fmtTime(view.t1, true)}`, PAD.l + 4, PAD.t - 3);
+}
+
+/** 鼠标位置 → 最近的曲线 + 时刻 */
+function pick(e) {
+  if (!points.length || !view) return null;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const { iw } = geom();
+  if (mx < PAD.l || mx > PAD.l + iw) return null;
+  const { ih } = geom();
+  const at = view.t0 + ((mx - PAD.l) / iw) * (view.t1 - view.t0);
+  let best = null, bestD = PICK_PX;
+  for (const k of KEYS) {
+    if (hidden.has(k)) continue;
+    const v = valueAt(k, at);
+    const d = Math.abs(yOf(v, ih) - my);
+    if (d < bestD) { bestD = d; best = { k, v }; }
+  }
+  return { at, cx: mx, cy: my, key: best ? best.k : null, v: best ? best.v : null };
+}
+
+function showTip(h) {
+  if (!h || !h.key) { tip.style.opacity = 0; return; }
+  const rect = canvas.getBoundingClientRect();
+  const v100 = Math.round(h.v * 100);
+  tip.innerHTML =
+    `<div class="row"><span class="nm" style="color:${COLORS[h.key]}">${NAMES[h.key]}</span>` +
+    `<span class="vl" style="color:${COLORS[h.key]}">${v100}%</span></div>` +
+    `<div class="tm">${fmtTime(h.at, true)}</div>` +
+    `<div class="sep"></div>` +
+    KEYS.map(k => {
+      const vv = Math.round(valueAt(k, h.at) * 100);
+      return `<div class="row"><span class="nm" style="color:${COLORS[k]};font-weight:${k === h.key ? 600 : 400}">` +
+        `${NAMES[k]}</span><span class="vl" style="color:${COLORS[k]};opacity:${k === h.key ? 1 : 0.6}">${vv}%</span></div>`;
+    }).join('');
+  tip.style.opacity = 1;
+
+  // 跟着鼠标，别出界
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = h.cx + 16, top = h.cy - th / 2;
+  if (left + tw > rect.width - 8) left = h.cx - tw - 16;
+  top = Math.max(4, Math.min(rect.height - th - 4, top));
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+canvas.addEventListener('wheel', (e) => {
+  if (!view) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const { iw } = geom();
+  const mx = e.clientX - rect.left;
+  const frac = Math.min(1, Math.max(0, (mx - PAD.l) / iw));
+  const anchor = view.t0 + (view.t1 - view.t0) * frac;
+
+  // 触控板/鼠标滚轮都可能来；用 deltaY 的符号 + 幅度做平滑缩放
+  const step = Math.min(3, Math.max(0.5, Math.abs(e.deltaY) / 100));
+  const factor = e.deltaY > 0 ? (1 + 0.22 * step) : (1 / (1 + 0.22 * step));
+  const span = (view.t1 - view.t0) * factor;
+  const clamped = Math.min(full.t1 - full.t0, Math.max(MIN_SPAN, span));
+  view.t0 = anchor - clamped * frac;
+  view.t1 = view.t0 + clamped;
+  clampView();
+  hover = pick(e);
+  showTip(hover);
+  scheduleDraw();
+}, { passive: false });
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!view) return;
+  canvas.setPointerCapture?.(e.pointerId);
+  dragging = { x: e.clientX, t0: view.t0, t1: view.t1 };
+  canvas.style.cursor = 'grabbing';
+});
+
+canvas.addEventListener('pointerup', () => {
+  dragging = null;
+  canvas.style.cursor = 'crosshair';
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!view) return;
+  if (dragging) {
+    const { iw } = geom();
+    const dx = e.clientX - dragging.x;
+    const span = dragging.t1 - dragging.t0;
+    const shift = -(dx / iw) * span;
+    view.t0 = dragging.t0 + shift;
+    view.t1 = dragging.t1 + shift;
+    clampView();
+    hover = null;
+    showTip(null);
+    scheduleDraw();
+    return;
+  }
+  hover = pick(e);
+  showTip(hover);
+  scheduleDraw();
+});
+
+canvas.addEventListener('pointerleave', () => {
+  hover = null;
+  showTip(null);
+  scheduleDraw();
+});
+
+canvas.addEventListener('dblclick', () => {
+  if (!full) return;
+  view = { ...full };
+  hover = null;
+  showTip(null);
+  scheduleDraw();
+});
+
+addEventListener('resize', scheduleDraw);
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

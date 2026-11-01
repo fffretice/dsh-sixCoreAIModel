@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>黑话审阅</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#0f1114;color:#e6e6e6}
+  header{position:sticky;top:0;background:#0f1114;border-bottom:1px solid #23262b;padding:12px 16px;z-index:9}
+  h1{font-size:16px;margin:0 0 8px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=search]{flex:1;min-width:180px;background:#171a1e;border:1px solid #2a2e35;border-radius:8px;color:#e6e6e6;padding:7px 10px}
+  button{background:#2a6df4;color:#fff;border:0;border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+  button.ghost{background:#242830}
+  button.ok{background:#2f8f57}
+  button.mid{background:#8a6a1f}
+  .meta{color:#8b919a;font-size:12px;margin-top:6px}
+  main{padding:12px 16px 60px;max-width:900px;margin:0 auto}
+  .row{background:#171a1e;border:1px solid #23262b;border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .row.done{opacity:.55}
+  .w{font-weight:600}
+  .c{color:#8b919a;font-size:12px}
+  .m{font-size:13px;margin-top:4px;color:#cfd3d8}
+  .u{font-size:12px;color:#8b919a;margin-top:2px}
+  .acts{display:flex;gap:6px;margin-top:8px}
+  .tag{font-size:11px;padding:1px 7px;border-radius:20px;margin-left:6px}
+  .t-use{background:#1f5138;color:#7ee2a8}
+  .t-und{background:#4a3a12;color:#f2cf7a}
+  .t-rej{background:#4a1f1f;color:#f08a8a}
+  .t-can{background:#2a2e35;color:#9aa1aa}
+</style>
+</head>
+<body>
+<header>
+  <h1>黑话审阅</h1>
+  <div class="bar">
+    <input type="search" id="q" placeholder="搜索词 / 含义…">
+    <button class="ghost" id="fAll">全部</button>
+    <button class="mid" id="fUnd">仅理解</button>
+    <button class="ok" id="fUse">会用</button>
+    <button class="ghost" id="fNone">未审</button>
+  </div>
+  <div class="meta" id="meta">加载中…</div>
+</header>
+<main id="list"></main>
+<script>
+const q = new URLSearchParams(location.search);
+const TOKEN = q.get('token') || '';
+const $ = (id) => document.getElementById(id);
+let all = [], filter = 'all';
+
+const api = (p, opt={}) => fetch(p, { ...opt, headers: { 'x-console-token': TOKEN, ...(opt.body?{'Content-Type':'application/json'}:{}) } });
+const TAG = { confirmed:['t-use','会用'], understand:['t-und','仅理解'], rejected:['t-rej','不用'], candidate:['t-can','未审'] };
+
+async function load() {
+  const r = await api('/api/slang/review').then(x=>x.json());
+  if (!r.ok) { $('meta').textContent = '读取失败：' + (r.error||''); return; }
+  all = r.entries || [];
+  render();
+}
+function render() {
+  const kw = $('q').value.trim().toLowerCase();
+  const rows = all.filter(e => {
+    if (filter !== 'all' && e.status !== filter) return false;
+    if (!kw) return true;
+    return (e.content + ' ' + (e.meaning||'') + ' ' + (e.usage||'')).toLowerCase().includes(kw);
+  });
+  const c = {};
+  for (const e of all) c[e.status] = (c[e.status]||0)+1;
+  $('meta').textContent = `共 ${all.length} 条 · 会用 ${c.confirmed||0} · 仅理解 ${c.understand||0} · 不用 ${c.rejected||0} · 未审 ${c.candidate||0}`;
+  $('list').innerHTML = rows.map(e => {
+    const [cls, label] = TAG[e.status] || TAG.candidate;
+    return `<div class="row ${e.status!=='candidate'?'done':''}">
+      <div><span class="w">${esc(e.content)}</span><span class="tag ${cls}">${label}</span>
+        <span class="c">出现 ${e.count||0} 次</span></div>
+      <div class="m">${esc((e.meaning||'').slice(0,120))}</div>
+      ${e.usage?`<div class="u">语境：${esc(e.usage.slice(0,90))}</div>`:''}
+      <div class="acts">
+        <button class="mid" data-id="${e.id}" data-s="understand">仅理解不使用</button>
+        <button class="ok" data-id="${e.id}" data-s="confirmed">理解并且会用</button>
+        <button class="ghost" data-id="${e.id}" data-s="rejected">不要</button>
+      </div></div>`;
+  }).join('') || '<div class="c">没有匹配的条目</div>';
+  $('list').querySelectorAll('button[data-id]').forEach(b => b.onclick = () => setStatus([b.dataset.id], b.dataset.s));
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function setStatus(ids, status) {
+  await api('/api/slang/review', { method:'POST', body: JSON.stringify({ ids, status }) });
+  await load();
+}
+$('q').oninput = render;
+$('fAll').onclick = () => { filter='all'; render(); };
+$('fUnd').onclick = () => { filter='understand'; render(); };
+$('fUse').onclick = () => { filter='confirmed'; render(); };
+$('fNone').onclick = () => { filter='candidate'; render(); };
+load();
+</script>
+</body>
+</html>

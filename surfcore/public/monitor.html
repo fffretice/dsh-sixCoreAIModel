@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>监控台</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#0f1114;color:#e6e6e6}
+  header{padding:14px 18px;border-bottom:1px solid #23262b;display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#0f1114}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .dot{width:9px;height:9px;border-radius:50%;background:#555;display:inline-block}
+  .dot.ok{background:#4ec97a}.dot.bad{background:#f06a6a}
+  main{padding:14px;max-width:900px;margin:0 auto}
+  section{background:#171a1e;border:1px solid #23262b;border-radius:12px;padding:14px;margin-bottom:12px}
+  section h2{font-size:12px;color:#8b919a;margin:0 0 10px;letter-spacing:.03em}
+  .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #23262b}
+  .row:last-child{border:0}
+  .k{color:#8b919a;font-size:13px}.v{font-size:13px;text-align:right}
+  .big{display:flex;gap:18px;flex-wrap:wrap}
+  .big div{flex:1;min-width:110px}
+  .big .n{font-size:20px;font-weight:600}
+  .big .l{font-size:11px;color:#8b919a}
+  button{background:#2a6df4;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px;margin:4px 6px 0 0}
+  button.ghost{background:#242830}
+  pre{background:#0d0f12;border:1px solid #23262b;border-radius:8px;padding:10px;font-size:11px;line-height:1.55;max-height:260px;overflow:auto;margin:0;white-space:pre-wrap}
+  .diary{white-space:pre-wrap;font-size:13px;line-height:1.7;color:#cfd3d8;max-height:320px;overflow:auto}
+  .muted{color:#7c828b;font-size:12px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:900px){.row2{grid-template-columns:1fr}}
+  .talk{max-height:840px;overflow:auto;font-size:14px;line-height:1.65}
+  .talk .item{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);max-width:680px}
+  .talk .meta{color:#7d8590;font-size:11.5px;font-family:ui-monospace,monospace}
+  .talk .p{color:#7d8590;font-size:12px;margin-top:2px}
+  .talk .r{color:#e6e6e6;margin-top:3px;font-size:14px}
+  .talk .t{color:#8b95a1;font-size:12px;font-style:italic;margin-top:3px}
+  .talk .c{color:#9ec5a8;font-size:12px;margin-top:3px;padding-left:8px;border-left:2px solid #2f4a3a;line-height:1.6}
+  .talk .badge{display:inline-block;font-size:9.5px;padding:0 5px;border-radius:4px;background:#243040;color:#9cc0ff;margin-left:5px}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    var a = document.getElementById('roomLink')
+    if (a) a.href = 'http://' + location.hostname + ':5180/'
+  })()
+</script>
+<header>
+  <h1>监控台</h1>
+  <span class="dot" id="dot"></span><span class="muted" id="stateText">连接中…</span>
+  <a id="roomLink" href="#" style="margin-left:auto;font-size:12px;color:#8b919a;text-decoration:none;border:1px solid #23262b;border-radius:999px;padding:3px 10px">去房间 →</a>
+</header>
+<main>
+  <section><h2>今日活跃额度</h2>
+    <div id="quotaRows"></div>
+    <div class="big" style="margin-top:12px">
+      <div><div class="n" id="sends">—</div><div class="l">发出条数</div></div>
+      <div><div class="n" id="stickers">—</div><div class="l">表情发出</div></div>
+      <div><div class="n" id="drawQuota">—</div><div class="l">今日生图</div></div>
+    </div>
+  </section>
+
+  <section><h2>今日资金额度</h2>
+    <div class="big">
+      <div><div class="n" id="todayCost">—</div><div class="l">今天</div></div>
+      <div><div class="n" id="totalCost">—</div><div class="l">累计</div></div>
+      <div><div class="n" id="tokensUsed">—</div><div class="l">累计 tokens</div></div>
+    </div>
+    <div class="row"><span class="k">日上限</span><span class="v" id="budget">—</span></div>
+  </section>
+
+  <section><h2>情绪核心</h2>
+    <div id="moodRows"></div>
+    <div class="muted" id="moodState"></div>
+  </section>
+
+  <section><h2>这个群在聊</h2>
+    <div id="topicRows"></div>
+    <div class="muted">平时主要聊：手办/模型、PCR、偶像大师</div>
+  </section>
+
+  <section><h2>四大核心</h2>
+    <button id="btnCores">打开 3D 核心图</button>
+    <span class="muted" id="coresHint">放大能看到各核心里哪些要素在活跃</span>
+  </section>
+
+  <section><h2>服务</h2>
+    <div class="row"><span class="k">桥接 / DSH</span><span class="v" id="svcBridge">—</span></div>
+    <div class="row"><span class="k">语音</span><span class="v" id="svcVoice">—</span></div>
+    <div class="row"><span class="k">桌宠</span><span class="v" id="svcPet">—</span></div>
+    <div class="row"><span class="k">是否暂停</span><span class="v" id="svcPaused">—</span></div>
+    <div class="row"><span class="k">每小时自检</span><span class="v" id="svcSelfcheck">—</span></div>
+  </section>
+
+  <section><h2>操作</h2>
+    <button id="btnPause">暂停她在群里说话</button>
+    <button class="ghost" id="btnWakeGroup">叫她（群）</button>
+    <button class="ghost" id="btnWakePrivate">叫她（私聊）</button>
+    <button class="ghost" id="btnPatron" style="border-color:#a855f7">今天加餐</button>
+    <button class="ghost" id="btnSelfcheck">关闭每小时自检</button>
+    <div class="muted" id="actionMsg"></div>
+  </section>
+
+  <section><h2>她想做的事</h2>
+    <div id="goalOpen" style="font-size:12px;line-height:1.9;color:#cfd3d8"></div>
+    <div id="goalDone" class="muted" style="font-size:10px;margin-top:4px"></div>
+    <div class="muted" style="font-size:10px;margin-top:4px">她在房间里写「目标：…」会出现；写「做完了：…」就划掉。</div>
+  </section>
+
+  <section><h2>自发性上网</h2>
+    <div style="display:flex;gap:28px;margin-bottom:8px">
+      <div>
+        <div class="muted" style="font-size:11px">今日搜索</div>
+        <div style="font-size:20px"><span id="webSearches">—</span> 次</div>
+        <div class="muted" style="font-size:11px">估算 <span id="webCost">¥0.000</span></div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:11px">翻 B 站</div>
+        <div style="font-size:20px"><span id="webBili">—</span> 次</div>
+        <div class="muted" style="font-size:11px">看过 <span id="webBiliVideos">0</span> 个视频</div>
+      </div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:4px">最近</div>
+    <div id="webRecent" style="font-size:12px;line-height:1.7;color:#cfd3d8"></div>
+    <div class="muted" style="font-size:10px;margin-top:6px">搜索花费按真实 token 估算；B 站翻阅的 token 已含在总花费里。</div>
+  </section>
+
+  <section><h2>她的日记</h2>
+    <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:6px">
+      <select id="diaryPick" style="font-size:12px;padding:2px 6px;border-radius:6px;background:#1b1d21;color:#cfd3d8;border:1px solid #2c2f35"></select>
+      <span id="diaryDate" class="muted" style="font-size:11px"></span>
+      <span id="diaryChars" class="muted" style="font-size:11px"></span>
+      <button class="ghost" id="diaryRefresh" style="font-size:11px;padding:2px 8px">刷新</button>
+    </div>
+    <div class="diary" id="diary">（今天还没写）</div>
+  </section>
+
+  <section><h2>助手和她的内心活动</h2>
+    <div id="talk" class="talk">—</div>
+  </section>
+
+  <section><h2>最近日志</h2>
+    <pre id="log">—</pre>
+  </section>
+</main>
+<script>
+const q = new URLSearchParams(location.search);
+const TOKEN = q.get('token') || '';
+const api = (p, opt={}) => fetch(p, { ...opt, headers: { 'x-console-token': TOKEN, ...(opt.body?{'Content-Type':'application/json'}:{}), ...(opt.headers||{}) } });
+const $ = (id) => document.getElementById(id);
+const sym = (t) => (t && t.symbol) || '¥';
+
+async function tick() {
+  try {
+    const r = await api('/api/monitor/summary').then(x => x.json());
+    if (!r.ok) throw new Error(r.error || 'no data');
+    $('dot').className = 'dot ok';
+    $('stateText').textContent = '在线 · ' + new Date().toLocaleTimeString();
+    const tg = r.today || {};
+    // 活跃额度：每个白名单群一行 + 私聊
+    const quota = [];
+    for (const g of (r.groups || [])) {
+      quota.push({ k: g.name || g.id, v: `${g.woke}/${g.cap}`, warn: g.cap > 0 && g.woke >= g.cap });
+    }
+    const pq = r.privateQuota || {};
+    if (pq.cap) quota.push({ k: '私聊唤醒', v: `${pq.woke}/${pq.cap}`, warn: pq.woke >= pq.cap });
+    // 接入状态并入这张卡（2026-10-30）
+    const gs = (r.groups || []).map((g) => g.name || g.id);
+    const paused = Boolean(r.services?.paused ?? r.paused);
+    const head = [
+      { k: '白名单群', v: gs.length ? gs.join(' / ') : '空 —— 任何群都不会理', warn: !gs.length },
+      { k: '能不能接话', v: paused ? '已暂停' : '活跃', warn: paused },
+    ];
+    $('quotaRows').innerHTML = [...head, ...quota].map(q =>
+      `<div class="row"><span class="k">${q.k}</span><span class="v" style="${q.warn ? 'color:#f0a35f' : ''}">${q.v}</span></div>`).join('');
+    const sends = tg.sends || {};
+    $('sends').textContent = (sends.total ?? 0) + ' 条';
+    $('stickers').textContent = (tg.stickers ?? 0) + ' 张';
+    const dq = tg.draw;
+    $('drawQuota').textContent = dq ? `${dq.remaining}/${dq.limit}` : '—';
+    // 资金
+    const tk = r.tokens || {};
+    const today = tk.todayCost ?? tk.today?.cost ?? null;
+    const totalCost = tk.totalCost ?? tk.totals?.cost ?? null;
+    $('todayCost').textContent = today == null ? '—' : sym(tk) + Number(today).toFixed(2);
+    $('totalCost').textContent = totalCost == null ? '—' : sym(tk) + Number(totalCost).toFixed(2);
+    const tok = tk.totals?.totalTokens ?? tk.totalTokens ?? tk.totals?.tokens;
+    $('tokensUsed').textContent = tok ? (Number(tok)/1e6).toFixed(1) + 'M' : '—';
+    $('budget').textContent = (tk.limit ?? '—') + (tk.limit ? ' 元/天' : '');
+    // 情绪
+    const md = r.mood || {};
+    const names = [['energy','精力','#7aa2f7'],['patience','耐心','#9ece6a'],['curiosity','好奇','#e0af68'],['mood','心情','#f7768e'],['social','社交','#bb9af7']];
+    $('moodRows').innerHTML = names.map(([k, n, c]) => {
+      const v = Math.round(((md.dims || {})[k] || 0) * 100);
+      return `<div class="row"><span class="k">${n}</span><span class="v"><span style="display:inline-block;width:120px;height:6px;background:#23262b;border-radius:3px;vertical-align:middle;margin-right:8px"><span style="display:block;width:${v}%;height:6px;border-radius:3px;background:${c}"></span></span>${v}%</span></div>`;
+    }).join('');
+    $('moodState').textContent = md.asleep ? '睡着中（醒来会恢复）' : '';
+    // 群热点
+    const tp = r.topics || {};
+    $('topicRows').innerHTML = (tp.hot || []).map(h =>
+      `<div class="row"><span class="k">${h.name}</span><span class="v">${h.score}</span></div>`).join('') || '<div class="muted">还没攒够数据</div>';
+    const s = r.services || {};
+    $('svcBridge').textContent = (s.bridge?.mode || '?') + ' · ' + (s.bridge?.dshBaseUrl || '');
+    $('svcVoice').textContent = (s.voice?.enabled ? '已开' : '关') + ' · ' + (s.voice?.defaultVoice || s.voice?.tts || '');
+    $('svcPet').textContent = s.pet ? '在跑' : '没起';
+    $('svcPaused').textContent = s.paused ? '已暂停' : '正常';
+    $('btnPause').textContent = s.paused ? '恢复她在群里说话' : '暂停她在群里说话';
+    const sc = r.selfcheck || {};
+    $('svcSelfcheck').textContent = sc.enabled === false ? '已关闭' : '开启';
+    $('btnSelfcheck').textContent = sc.enabled === false ? '开启每小时自检' : '关闭每小时自检';
+    $('btnSelfcheck').dataset.enabled = sc.enabled === false ? 'off' : 'on';
+    const talk = r.assistantTalk || [];
+    $('talk').innerHTML = talk.length ? talk.slice().reverse().map((m) => {
+      const t = new Date(m.at || 0).toTimeString().slice(0, 5);
+      const esc = (s) => String(s || '').replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+      const think = (m.thinking || '').trim();
+      const prompt = esc(m.prompt).split('\n').filter(Boolean).join('<br>');
+      // 2026-11-01：新增的观察 / 复盘 / 她自己的承诺 / 看图，单独一行
+      const ctx = esc(m.context || '').split('\n').filter(Boolean).join('<br>');
+      const imgN = Number(m.images || 0);
+      return `<div class="item"><div class="meta">${t} · ${esc(m.where)}${imgN ? `<span class="badge">看图 ${imgN} 张</span>` : ''}</div>`
+        + `<div class="p">${prompt}</div>`
+        + (ctx ? `<div class="c">${ctx}</div>` : '')
+        + (think ? `<div class="t">她想：${esc(think)}</div>` : '')
+        + `<div class="r">${esc(m.reply)}</div></div>`;
+    }).join('') : '（还没有记录）';
+    // 日记：日期选择器 + 刷新（2026-10-30）
+    const gl = r.goals || {};
+    const openRows = (gl.open || []).map((x) => {
+      const days = Number(x.days || 0);
+      return `<div>· ${String(x.text || '').replace(/[<>&]/g, '')}${days > 0 ? ` <span class="muted">（${days} 天）</span>` : ''}</div>`;
+    }).join('');
+    $('goalOpen').innerHTML = openRows || '<div class="muted">还没有记下什么</div>';
+    $('goalDone').textContent = (gl.done || []).length ? '最近划掉：' + gl.done.map((x) => x.text).join('、') : '';
+
+    const wu = r.webUsage || {};
+    $('webSearches').textContent = wu.searches ?? 0;
+    $('webCost').textContent = '¥' + Number(wu.costCNY || 0).toFixed(3);
+    $('webBili').textContent = wu.biliCalls ?? 0;
+    $('webBiliVideos').textContent = wu.biliVideos ?? 0;
+    $('webRecent').innerHTML = (wu.recent || []).map((x) => {
+      const d = new Date(x.at); const hh = String(d.getHours()).padStart(2, '0'); const mm = String(d.getMinutes()).padStart(2, '0');
+      const q = String(x.query || '').replace(/[<>&]/g, '');
+      return `<div>${hh}:${mm}  ${q}  <span class="muted">¥${Number(x.costCNY || 0).toFixed(3)}</span></div>`;
+    }).join('') || '<div class="muted">今天还没有自己上网</div>';
+
+    const diaryFiles = (r.diary?.files || []).map((f) => String(f).replace(/\.md$/, ''));
+    const pick = $('diaryPick');
+    if (pick && diaryFiles.length && pick.dataset.loaded !== diaryFiles.join(',')) {
+      const cur = pick.value || (r.diary?.date || diaryFiles[0]);
+      pick.innerHTML = diaryFiles.map((d) => `<option value="${d}">${d}</option>`).join('');
+      pick.value = diaryFiles.includes(cur) ? cur : diaryFiles[0];
+      pick.dataset.loaded = diaryFiles.join(',');
+    }
+    if (pick) pick.onchange = () => loadDiary(pick.value);
+    const rf = $('diaryRefresh');
+    if (rf) rf.onclick = () => loadDiary(pick?.value || '');
+
+    async function loadDiary(day) {
+      try {
+        const q = day ? `?date=${encodeURIComponent(day)}` : '';
+        const d = await api('/api/socialV2/diary' + q).then((x) => x.json());
+        $('diary').textContent = d.content || '这一天没有日记';
+        $('diaryDate').textContent = d.date || day || '';
+        $('diaryChars').textContent = d.content ? `${d.content.length} 字` : '';
+      } catch (e) {
+        $('diary').textContent = '读取失败：' + e.message;
+      }
+    }
+    if (!pick?.value) $('diary').textContent = r.diary?.today || '今天还没写';
+    $('diaryDate').textContent = r.diary?.date ? r.diary.date : '';
+    $('diaryChars').textContent = r.diary?.chars ? `${r.diary.chars} 字` : '';
+    $('log').textContent = (r.log || []).slice(-30).join('\n');
+  } catch (e) {
+    $('dot').className = 'dot bad';
+    $('stateText').textContent = '连不上：' + e.message;
+  }
+}
+async function act(kind, payload) {
+  $('actionMsg').textContent = '执行中…';
+  try {
+    const r = await api('/api/monitor/action', { method:'POST', body: JSON.stringify({ kind, ...payload }) }).then(x=>x.json());
+    $('actionMsg').textContent = r.ok ? '已执行' : ('失败：' + (r.error||''));
+  } catch (e) { $('actionMsg').textContent = '失败：' + e.message; }
+  setTimeout(tick, 800);
+}
+$('btnCores').onclick = () => window.open('/cores?token=' + encodeURIComponent(TOKEN), '_blank');
+$('btnPause').onclick = () => act('toggle-pause');
+$('btnWakeGroup').onclick = () => act('wake-group');
+$('btnWakePrivate').onclick = () => act('wake-private');
+$('btnPatron').onclick = async () => {
+  $('btnPatron').disabled = true;
+  try {
+    const r = await fetch('/api/socialV2/patron-grant?token=' + TOKEN, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-console-token': TOKEN },
+      body: JSON.stringify({ note: '' }),
+    }).then((x) => x.json());
+    $('actionMsg').textContent = r.ok ? '加餐已记下，她下次私聊醒来会看到' : ('失败：' + (r.error || '未知'));
+  } catch (e) {
+    $('actionMsg').textContent = '失败：' + e.message;
+  } finally {
+    $('btnPatron').disabled = false;
+  }
+};
+
+$('btnSelfcheck').onclick = async () => {
+  const next = $('btnSelfcheck').dataset.enabled !== 'on';   // 当前是关 → 开
+  $('actionMsg').textContent = '切换中…';
+  try {
+    const r = await api('/api/selfcheck', { method: 'POST', body: JSON.stringify({ enabled: next }) }).then(x => x.json());
+    $('actionMsg').textContent = r.ok ? (next ? '自检已开启' : '自检已关闭') : ('失败：' + (r.error || ''));
+  } catch (e) { $('actionMsg').textContent = '失败：' + e.message; }
+  setTimeout(tick, 600);
+};
+tick(); setInterval(tick, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>语音（TTS）</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:#111316; color:#e6e6e6; }
+  header { padding:14px 22px; border-bottom:1px solid #23262b; display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  .tag { font-size:12px; color:#8a8f98; }
+  main { max-width:900px; margin:0 auto; padding:20px 22px 60px; }
+  section { background:#181b1f; border:1px solid #23262b; border-radius:10px; padding:16px; margin-bottom:14px; }
+  section h2 { font-size:13px; margin:0 0 12px; color:#9aa0a8; font-weight:600; letter-spacing:.02em; }
+  label { display:block; font-size:12px; color:#8a8f98; margin:10px 0 4px; }
+  input[type=text], input[type=password], select, textarea {
+    width:100%; box-sizing:border-box; background:#0f1114; color:#e6e6e6;
+    border:1px solid #2a2e34; border-radius:6px; padding:8px 10px; font-size:13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  textarea { min-height:180px; resize:vertical; line-height:1.5; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .row > div { flex:1; min-width:240px; }
+  button {
+    background:#2a6df4; color:#fff; border:0; border-radius:6px; padding:8px 14px;
+    font-size:13px; cursor:pointer;
+  }
+  button.ghost { background:#242830; }
+  button:disabled { opacity:.5; cursor:default; }
+  .hint { font-size:12px; color:#7c828b; margin-top:6px; }
+  .status { font-size:12px; margin-top:10px; white-space:pre-wrap; }
+  .ok { color:#5ec27d; } .err { color:#f06a6a; }
+  audio { width:100%; margin-top:10px; }
+  .modes { display:flex; gap:8px; flex-wrap:wrap; }
+  .modes button { background:#1f2329; border:1px solid #2a2e34; }
+  .modes button.active { background:#2a6df4; border-color:#2a6df4; }
+  .hidden { display:none; }
+  pre { background:#0f1114; border:1px solid #23262b; border-radius:6px; padding:10px; overflow:auto; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>语音（TTS）</h1>
+  <span class="tag">通用 OpenAI 兼容接口 · 默认小米 MiMo</span>
+</header>
+<main>
+
+<section>
+  <h2>1 · 接口与密钥</h2>
+  <label>接口地址（默认 MiMo，也可填任意 OpenAI 兼容的 chat/completions）</label>
+  <input type="text" id="baseUrl" placeholder="https://api.xiaomimimo.com/v1/chat/completions">
+  <label>密钥</label>
+  <input type="password" id="apiKey" placeholder="粘贴 API Key（保存后只显示前 4 位）">
+  <div class="hint">密钥只存在本机 <code>state/tts-openai.json</code>，不写进请求体；请求头里用占位符 <code>{apiKey}</code> 引用。</div>
+</section>
+
+<section>
+  <h2>3 · 模型</h2>
+  <div class="row">
+    <div>
+      <label>模型</label>
+      <select id="modelSelect"><option value="">（先点「拉取模型」）</option></select>
+    </div>
+    <div style="flex:0 0 auto; min-width:0">
+      <button class="ghost" id="btnModels">拉取模型</button>
+    </div>
+  </div>
+  <label>或手动填写模型 ID</label>
+  <input type="text" id="modelManual" placeholder="例如 mimo-tts">
+</section>
+
+<section>
+  <h2>4 · 模式</h2>
+  <div class="modes">
+    <button data-mode="prompt" class="active">文字提示语音</button>
+    <button data-mode="preset">官方预设音色</button>
+    <button data-mode="clone">语音克隆</button>
+  </div>
+  <div class="hint" id="modeHint">用「用户消息描述音色 + assistant 消息放台词」的方式合成。</div>
+
+  <!-- 4.1 文字提示：请求头/请求体 -->
+  <div id="panelPrompt">
+    <label>请求头（原文，支持 {apiKey} 占位符；不会自动补 Content-Type / Authorization）</label>
+    <textarea id="headers"></textarea>
+    <label>请求体（原文，支持 {model} {text} {format} 占位符；原样发送，不重新序列化）</label>
+    <textarea id="body"></textarea>
+    <div class="hint">保存和发送都用这段原文，字节级不做改动。</div>
+  </div>
+
+  <!-- 4.2 预设音色 -->
+  <div id="panelPreset" class="hidden">
+    <label>音色 ID（官方预设，中文）</label>
+    <input type="text" id="presetVoice" placeholder="例如 甜妹 / 少女 / 温柔姐姐（按官方命名填）">
+    <div class="hint">填了会替换模板里的 <code>{voice}</code>；如果你的接口用 body 字段传音色，直接在请求体里写死即可。</div>
+  </div>
+
+  <!-- 4.3 克隆 -->
+  <div id="panelClone" class="hidden">
+    <label>克隆参考音频（wav / mp3，3~10 秒）</label>
+    <input type="file" id="refFile" accept="audio/*">
+    <div class="hint">上传后会存到 <code>state/tts-refs/</code>，并在请求体里用 <code>{refAudio}</code> 引用文件名。</div>
+  </div>
+</section>
+
+<section>
+  <h2>5 · 保存与检查</h2>
+  <div class="row">
+    <div style="flex:0 0 auto;min-width:0"><button id="btnSave">保存配置</button></div>
+    <div style="flex:0 0 auto;min-width:0"><button class="ghost" id="btnReload">重新读取</button></div>
+  </div>
+  <div class="status" id="saveStatus"></div>
+</section>
+
+<section>
+  <h2>6 · 试合成</h2>
+  <label>台词</label>
+  <input type="text" id="previewText" value="嗯…我在呢，有点困，小声说一句就好">
+  <div class="row" style="margin-top:10px">
+    <div><label>输出格式</label>
+      <select id="outputFormat">
+        <option value="mp3">mp3</option><option value="wav">wav</option><option value="ogg">ogg</option>
+      </select>
+    </div>
+    <div style="flex:0 0 auto;min-width:0"><button id="btnPreview">合成并试听</button></div>
+  </div>
+  <div class="status" id="previewStatus"></div>
+  <audio id="player" controls class="hidden"></audio>
+  <pre id="requestPreview" class="hidden"></pre>
+</section>
+
+</main>
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const api = (p, opt = {}) => fetch(p, {
+  ...opt,
+  headers: { 'x-console-token': TOKEN, ...(opt.body && typeof opt.body === 'string' ? { 'Content-Type': 'application/json' } : {}), ...(opt.headers || {}) },
+});
+const $ = (id) => document.getElementById(id);
+let mode = 'prompt';
+
+async function load() {
+  const r = await api('/api/tts/config').then((x) => x.json());
+  if (!r.ok) return;
+  const c = r.config;
+  $('baseUrl').value = c.baseUrl || '';
+  $('apiKey').placeholder = c.hasKey ? `已保存（${c.apiKey}）` : '粘贴 API Key';
+  $('headers').value = c.headers || '';
+  $('body').value = c.body || '';
+  $('presetVoice').value = c.presetVoice || '';
+  $('outputFormat').value = c.outputFormat || 'mp3';
+  if (c.model) { $('modelManual').value = c.model; const o = new Option(c.model, c.model, true, true); $('modelSelect').add(o); }
+  setMode(c.mode || 'prompt');
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.modes button').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
+  $('panelPrompt').classList.toggle('hidden', m !== 'prompt');
+  $('panelPreset').classList.toggle('hidden', m !== 'preset');
+  $('panelClone').classList.toggle('hidden', m !== 'clone');
+  $('modeHint').textContent = m === 'prompt'
+    ? '用「用户消息描述音色 + assistant 消息放台词」的方式合成。'
+    : m === 'preset'
+      ? '选官方提供的预设音色（中文），模板里用 {voice} 引用。'
+      : '上传 3~10 秒参考音频做声音克隆，模板里用 {refAudio} 引用文件名。';
+}
+document.querySelectorAll('.modes button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+$('btnSave').onclick = async () => {
+  const payload = {
+    baseUrl: $('baseUrl').value.trim(),
+    apiKey: $('apiKey').value.trim(),
+    model: ($('modelManual').value || $('modelSelect').value || '').trim(),
+    mode,
+    headers: $('headers').value,   // 原文，不 trim、不改格式
+    body: $('body').value,
+    outputFormat: $('outputFormat').value,
+    presetVoice: $('presetVoice').value.trim(),
+  };
+  const r = await api('/api/tts/config', { method: 'POST', body: JSON.stringify(payload) }).then((x) => x.json());
+  $('saveStatus').className = 'status ' + (r.ok ? 'ok' : 'err');
+  $('saveStatus').textContent = r.ok ? `已保存（${(r.saved || []).join(', ')}）` : `保存失败：${r.error}`;
+};
+
+$('btnReload').onclick = () => load();
+
+$('btnModels').onclick = async () => {
+  const st = $('saveStatus');
+  st.className = 'status';
+  st.textContent = '拉取模型中…';
+  const r = await api('/api/tts/models', { method: 'POST', body: JSON.stringify({ baseUrl: $('baseUrl').value.trim(), headers: $('headers').value, apiKey: $('apiKey').value.trim() }) }).then((x) => x.json());
+  if (!r.ok) { st.className = 'status err'; st.textContent = `拉取失败：${r.error}`; return; }
+  const sel = $('modelSelect');
+  sel.innerHTML = '';
+  if (!r.models.length) { st.textContent = '接口没返回模型列表（可能是空）；可以手动填模型 ID。'; return; }
+  r.models.forEach((m) => sel.add(new Option(m.id, m.id)));
+  st.className = 'status ok';
+  st.textContent = `拉到 ${r.models.length} 个模型`;
+};
+
+$('refFile').onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const st = $('previewStatus');
+  st.className = 'status'; st.textContent = '上传中…';
+  const r = await fetch(`/api/tts/clone?name=${encodeURIComponent(f.name)}`, { method: 'POST', body: f, headers: { 'x-console-token': TOKEN } }).then((x) => x.json());
+  st.className = 'status ' + (r.ok ? 'ok' : 'err');
+  st.textContent = r.ok ? `已保存参考音频：${r.name}（${(r.bytes/1024).toFixed(0)} KB）` : `上传失败：${r.error}`;
+};
+
+$('btnPreview').onclick = async () => {
+  const st = $('previewStatus');
+  st.className = 'status'; st.textContent = '合成中…';
+  $('player').classList.add('hidden');
+  $('requestPreview').classList.add('hidden');
+  const r = await api('/api/tts/preview', { method: 'POST', body: JSON.stringify({ text: $('previewText').value, format: $('outputFormat').value, voice: $('presetVoice').value }) }).then((x) => x.json());
+  if (!r.ok) {
+    st.className = 'status err';
+    st.textContent = `失败：${r.error}`;
+    if (r.request) { $('requestPreview').classList.remove('hidden'); $('requestPreview').textContent = '实际发出：\n' + r.request.body; }
+    return;
+  }
+  st.className = 'status ok';
+  st.textContent = `合成成功：${(r.bytes/1024).toFixed(0)} KB`;
+  const p = $('player');
+  p.src = `/api/tts/audio/${encodeURIComponent(r.file)}?token=${encodeURIComponent(TOKEN)}`;
+  p.classList.remove('hidden');
+  p.play().catch(() => {});
+  if (r.request) { $('requestPreview').classList.remove('hidden'); $('requestPreview').textContent = '实际发出的请求体：\n' + r.request.body; }
+};
+
+load();
+</script>
+</body>
+</html>

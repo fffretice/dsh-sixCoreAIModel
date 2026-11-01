@@ -1,0 +1,47 @@
+# SnowLuma 的 Docker 起法（macOS / Linux 参考）
+
+> 这是**参考配置**，不是本项目的一部分。SnowLuma 是第三方软件，本仓库不分发它，
+> 也不修改它；这里只给出一个能跑通的最小 compose。
+>
+> 用法：存成 `docker-compose.yml`，`docker compose up -d`，
+> 然后浏览器打开 `http://127.0.0.1:6081` 扫码。
+
+```yaml
+services:
+  snowluma:
+    image: motricseven7/snowluma:latest
+    container_name: snowluma
+    restart: unless-stopped
+    shm_size: 1gb
+    ulimits:
+      nofile: { soft: 65536, hard: 1048576 }
+    cap_add: [SYS_PTRACE]
+    security_opt: ["seccomp=unconfined"]
+    environment:
+      TZ: Asia/Shanghai                 # 改成你的时区
+      SNOWLUMA_WEBUI_HOST: 0.0.0.0
+      SNOWLUMA_WEBUI_PORT: "5099"
+      SNOWLUMA_QQ_FLAGS: "--disable-gpu --disable-software-rasterizer --disable-gpu-compositing"
+    ports:
+      - "127.0.0.1:6081:6081"           # noVNC，扫码用
+      - "127.0.0.1:5099:5099"           # SnowLuma WebUI
+      - "127.0.0.1:3000:3000"           # OneBot HTTP（SurfCore 用这个）
+      - "127.0.0.1:3001:3001"           # OneBot WS（SurfCore 用这个）
+    volumes:
+      - qq-gateway-data:/app/data
+      - qq-client-config:/app/.config
+      - qq-client-data:/app/.local/share
+
+volumes:
+  qq-gateway-data: { name: qq-gateway-data }
+  qq-client-config: { name: qq-client-config }
+  qq-client-data: { name: qq-client-data }
+```
+
+## 说明
+
+- 端口只绑 `127.0.0.1`，不对外暴露。**不要**改成 `0.0.0.0`——那等于把 QQ 登录态开放给整个局域网。
+- `SNOWLUMA_QQ_FLAGS` 里的三个 `--disable-gpu*` 是给无显卡容器用的，能避免扫码界面黑屏。
+- 数据卷里有你的 QQ 登录态，**不要提交到任何仓库**，也不要把 compose 文件分享给别人时带上卷数据。
+- Apple Silicon 上镜像会自动选 arm64；如果拉到的镜像跑不起来，在 `image:` 后面加 `platform: linux/arm64`。
+- 这个镜像的版本更新很快，接口（尤其 token 与端口）可能变。以 SnowLuma 官方文档为准。

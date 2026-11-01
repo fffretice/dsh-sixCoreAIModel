@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>核心活动时间线</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b0e12;color:#e6e6e6;font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid #1e242b;display:flex;gap:12px;align-items:baseline}
+  h1{font-size:15px;margin:0;font-weight:600}.sub{color:#7d8590;font-size:12px}
+  main{padding:14px 18px;max-width:900px;margin:0 auto}
+  .ev{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed #1b212a}
+  .t{color:#6e7781;font-size:11px;width:64px;flex:none;padding-top:3px;font-variant-numeric:tabular-nums}
+  .dot{width:8px;height:8px;border-radius:50%;margin-top:7px;flex:none}
+  .body{flex:1}
+  .k{font-size:12px;font-weight:600}
+  .x{font-size:12px;color:#aab2bd;margin-top:2px}
+  .tag{font-size:10px;padding:1px 6px;border-radius:9px;margin-left:6px;background:#1b212a;color:#8b95a1}
+</style>
+</head>
+<body>
+<header><h1>核心活动时间线</h1><span class="sub" id="sub">加载中…</span></header>
+<main id="list"></main>
+<script>
+const C = { personality:'#7aa2f7', rules:'#9ece6a', memory:'#e0af68', emotion:'#f7768e' };
+const N = { personality:'性格', rules:'规则', memory:'记忆', emotion:'情绪' };
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+async function load(){
+  const r = await fetch('/api/monitor/timeline?hours=24', { headers:{'x-console-token':TOKEN} }).then(x=>x.json());
+  if(!r.ok){ document.getElementById('sub').textContent='读取失败'; return; }
+  const ev = r.events || [];
+  document.getElementById('sub').textContent = `最近 ${r.hours} 小时 · ${ev.length} 件事`;
+  document.getElementById('list').innerHTML = ev.map(e => {
+    const d = new Date(e.at);
+    const t = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div class="ev"><span class="t">${t}</span>
+      <span class="dot" style="background:${C[e.core]||'#888'}"></span>
+      <div class="body"><span class="k">${esc(e.kind)}</span><span class="tag">${N[e.core]||e.core}</span>
+      <div class="x">${esc(e.text)}</div></div></div>`;
+  }).join('') || '<div class="sub">这段时间没什么值得记的事</div>';
+}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+load(); setInterval(load, 30000);
+</script>
+</body>
+</html>

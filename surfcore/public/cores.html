@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>四大核心</title>
+<style>
+  :root{color-scheme:dark}
+  html,body{margin:0;height:100%;overflow:hidden;background:#07090c;
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#e6e6e6}
+  canvas{display:block;width:100vw;height:100vh;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  header{position:fixed;left:16px;top:14px;pointer-events:none}
+  h1{font-size:15px;margin:0 0 4px;font-weight:600}
+  .sub{color:#7d8590;font-size:12px}
+  .hint{position:fixed;left:16px;bottom:14px;color:#5d646d;font-size:11px;line-height:1.7}
+  .panel{position:fixed;right:16px;top:14px;background:#0e1216cc;border:1px solid #1e242b;
+    border-radius:12px;padding:10px 12px;min-width:210px;backdrop-filter:blur(6px)}
+  .panel h2{font-size:11px;color:#808a95;margin:0 0 8px;font-weight:600;letter-spacing:.05em}
+  .el{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .el .n{flex:1;font-size:12px;color:#c9d1d9}
+  .bar{flex:0 0 84px;height:5px;border-radius:3px;background:#1b2027;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:3px}
+  .sleep{color:#f2cf7a}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<header>
+  <h1>四大核心</h1>
+  <div class="sub" id="state">连接中…</div><div class="sub" id="ver" style="opacity:.45">v3-marker-zoom</div>
+</header>
+<div class="panel">
+  <h2 id="panelTitle">活跃要素</h2>
+  <div id="panelBody" style="color:#6e7781;font-size:12px">把鼠标移到某个核心上</div>
+</div>
+<div class="hint">滚轮缩放（以鼠标为中心）· 左键拖拽旋转 · 右键/Shift 拖拽平移 · 双击复位<br>放大后每个核心周围的点就是它的要素，越亮越活跃</div>
+<script>
+window.onerror = function (m, s, l, col) {
+  const d = document.createElement('pre');
+  d.style.cssText = 'position:fixed;left:10px;bottom:60px;color:#f7768e;font-size:12px;z-index:99;white-space:pre-wrap;max-width:90vw';
+  d.textContent = 'ERR: ' + m + ' @' + l + ':' + col;
+  document.body.appendChild(d);
+};
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const COLORS = { personality:'#7aa2f7', rules:'#9ece6a', memory:'#e0af68', emotion:'#f7768e' };
+let W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1);
+function resize(){ W=innerWidth; H=innerHeight; c.width=W*DPR; c.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+addEventListener('resize', resize); resize();
+
+// ── 相机 ─────────────────────────────────────────────
+const CAM_BASE = 900 / (900 + 700);   // 中心处透视系数
+const Z0 = parseFloat(new URLSearchParams(location.search).get('zoom') || '1');
+let rotY = 0.6, rotX = -0.25, zoom = isFinite(Z0) ? Math.max(0.7, Math.min(2.2, Z0)) : 1, panX = 0, panY = 0;
+let dragging = false, panning = false, lastX = 0, lastY = 0, hovered = null;
+c.addEventListener('contextmenu', e => e.preventDefault());
+c.addEventListener('mousedown', e => {
+  if (e.button === 2 || e.button === 1 || e.shiftKey) { panning = true; } else { dragging = true; }
+  lastX = e.clientX; lastY = e.clientY; c.classList.add('drag');
+});
+addEventListener('mouseup', () => { dragging = false; panning = false; c.classList.remove('drag'); });
+addEventListener('mousemove', e => {
+  if (panning) {
+    panX += (e.clientX - lastX) / zoom;
+    panY += (e.clientY - lastY) / zoom;
+    lastX = e.clientX; lastY = e.clientY;
+    return;
+  }
+  if (dragging) {
+    rotY += (e.clientX - lastX) * 0.008;
+    rotX += (e.clientY - lastY) * 0.006;
+    rotX = Math.max(-1.2, Math.min(1.2, rotX));
+    lastX = e.clientX; lastY = e.clientY;
+  }
+});
+c.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.shiftKey || e.deltaX) {
+    // Shift+滚轮 / 横向滚动 = 平移
+    panX -= (e.deltaX || e.deltaY) / zoom;
+    return;
+  }
+  const before = zoom;
+  const next = Math.max(0.6, Math.min(2.6, zoom * Math.exp(-e.deltaY * 0.0012)));
+  if (next === before) return;
+  // 标准做法：以鼠标位置为中心缩放（zoom to cursor），鼠标下的东西不动
+  const sOld = CAM_BASE * before, sNew = CAM_BASE * next;
+  const cx = mouse.x - W/2, cy = mouse.y - H/2;
+  panX += cx * (1/sNew - 1/sOld);
+  panY += cy * (1/sNew - 1/sOld);
+  zoom = next;
+}, { passive:false });
+c.addEventListener('dblclick', () => { rotY = 0.6; rotX = -0.25; zoom = 1; panX = 0; panY = 0; });
+
+// ── 3D 投影 ──────────────────────────────────────────
+// 场景缩放：让四个核心始终落在窗口里（不同窗口尺寸都能看全）
+function sceneScale() {
+  return Math.max(0.42, Math.min(1.5, Math.min(W, H) / 700));
+}
+function project(p) {
+  const k = sceneScale();
+  const cy = Math.cos(rotY), sy = Math.sin(rotY);
+  const cx = Math.cos(rotX), sx = Math.sin(rotX);
+  let x = p.x * k, y = p.y * k, z = p.z * k;
+  let xr = x * cy - z * sy;
+  let zr = x * sy + z * cy;
+  let yr = y * cx - zr * sx;
+  zr = y * sx + zr * cx;
+  const f = 900;
+  const sBase = f / (f + zr + 700);        // 不含 zoom 的透视系数
+  const s = sBase * zoom;                  // 位置：随 zoom 等比放大（间距拉开）
+  return { x: W/2 + (xr + panX) * s, y: H/2 + (yr + panY) * s, z: zr, s, sBase };
+}
+
+// ── 数据 ─────────────────────────────────────────────
+let DATA = null;
+async function load() {
+  try {
+    const tok = new URLSearchParams(location.search).get('token') || '';
+    const r = await fetch('/api/monitor/cores', { headers: { 'x-console-token': tok } }).then(x => x.json());
+    if (!r.ok) throw new Error(r.error || 'no data');
+    DATA = r;
+    document.getElementById('state').textContent =
+      (r.asleep ? '睡着中 · ' : '') + new Date(r.at).toLocaleTimeString();
+    renderPanel(hovered);
+  } catch (e) {
+    document.getElementById('state').textContent = '连不上：' + e.message;
+  }
+}
+
+// 四个核心摆成四面体
+// 菱形排布：上=性格 右=规则 左=记忆 下=情绪
+// 只留一点点 z 做前后层次，保证怎么转都不会叠在一起
+const POS = {
+  personality: { x: 0, y: -225, z: 30 },
+  rules:       { x: 225, y: 45, z: -30 },
+  memory:      { x: -225, y: 45, z: -30 },
+  emotion:     { x: 0, y: 225, z: 30 },
+};
+const LINKS = [['personality','rules'],['personality','memory'],['personality','emotion'],
+               ['rules','memory'],['rules','emotion'],['memory','emotion']];
+
+function activityColor(v, base) {
+  const a = Math.max(0.06, Math.min(1, v));
+  return { base, a };
+}
+
+let t0 = performance.now();
+function draw() {
+  // 每帧用实际可视尺寸，避免初次布局拿到 0 或错的尺寸
+  const cw = c.clientWidth, ch = c.clientHeight;
+  if (cw && ch && (cw !== W || ch !== H)) { W = cw; H = ch; c.width = W*DPR; c.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+  const t = (performance.now() - t0) / 1000;
+  ctx.clearRect(0, 0, W, H);
+  // 背景网格光晕
+  const g = ctx.createRadialGradient(W/2, H/2, 40, W/2, H/2, Math.max(W,H) * 0.7);
+  g.addColorStop(0, '#0d1117'); g.addColorStop(1, '#05070a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  if (DATA) {
+    const cores = DATA.cores || [];
+    const pts = cores.map(core => ({ core, p: project(POS[core.key] || {x:0,y:0,z:0}) }));
+    // 连线（带方向流动的光点）
+    for (const [a, b] of LINKS) {
+      const pa = project(POS[a]), pb = project(POS[b]);
+      ctx.strokeStyle = 'rgba(120,140,170,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      const k = (Math.sin(t * 0.9 + (a.length + b.length)) + 1) / 2;
+      const mx = pa.x + (pb.x - pa.x) * k, my = pa.y + (pb.y - pa.y) * k;
+      ctx.fillStyle = 'rgba(160,190,230,0.55)';
+      ctx.beginPath(); ctx.arc(mx, my, 1.8, 0, Math.PI*2); ctx.fill();
+    }
+    // 核心按 z 排序
+    pts.sort((u, v) => u.p.z - v.p.z);
+    window.__pts = pts;
+    hovered = null;
+    for (const { core, p } of pts) {
+      const baseColor = COLORS[core.key] || '#888';
+      const avg = core.elements.reduce((s, e) => s + (e.activity||0), 0) / Math.max(1, core.elements.length);
+      // 球径只随缩放微涨（^0.3）：间距拉得比球快，放大才不会挤成一团
+      const rScale = Math.pow(zoom, 0.3);
+      const R = ((DATA.asleep && core.key === 'emotion') ? 26 : 40 * p.sBase * rScale) * (0.75 + 0.4 * (core.intensity || 0.5));
+      // 光晕
+      const glow = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, R * 2.4);
+      glow.addColorStop(0, hexA(baseColor, 0.55 + avg * 0.35));
+      glow.addColorStop(0.5, hexA(baseColor, 0.10 + avg * 0.15));
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(p.x, p.y, R * 2.4, 0, Math.PI*2); ctx.fill();
+      // 核心球
+      const ball = ctx.createRadialGradient(p.x - R*0.3, p.y - R*0.35, R*0.15, p.x, p.y, R);
+      ball.addColorStop(0, hexA(baseColor, 0.95));
+      ball.addColorStop(1, hexA(baseColor, 0.35));
+      ctx.fillStyle = ball;
+      ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI*2); ctx.fill();
+      // 要素：绕核心一圈的点，越活跃越亮越大
+      const els = core.elements || [];
+      els.forEach((el, i) => {
+        const ang = (i / Math.max(1, els.length)) * Math.PI * 2 + t * 0.25;
+        // 影响力越大，离核心越近、越容易被看到
+        const w = Math.max(0.05, Math.min(1, el.weight ?? el.activity ?? 0));
+        const g = Math.max(0.05, Math.min(1, el.glow ?? el.activity ?? 0));
+        const rad = R * (1.95 - 0.6 * w + 0.1 * Math.sin(t * 1.3 + i));
+        const px = p.x + Math.cos(ang) * rad;
+        const py = p.y + Math.sin(ang) * rad * 0.55;
+        const pulse = 0.75 + 0.25 * Math.sin(t * 2.6 + i * 1.7);
+        // 尺寸由权重决定，亮度由 glow 决定；低值要素又小又暗
+        ctx.fillStyle = hexA(baseColor, (0.08 + g * 0.9) * pulse);
+        ctx.beginPath(); ctx.arc(px, py, (1.0 + w * 6.5) * Math.pow(zoom, 0.3), 0, Math.PI*2); ctx.fill();
+        // 主导要素再加一圈光环
+        if (el.name === core.dominant) {
+          ctx.strokeStyle = hexA(baseColor, 0.25 + 0.35 * pulse);
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(px, py, 3 + w * 8, 0, Math.PI*2); ctx.stroke();
+        }
+        if (zoom > 1.35) {
+          ctx.fillStyle = `rgba(230,235,240,${0.25 + g * 0.65})`;
+          ctx.font = '11px -apple-system, "PingFang SC", sans-serif';
+          ctx.fillText(el.name, px + 7, py + 3);
+        }
+        // 命中检测
+        const dx = mouse.x - px, dy = mouse.y - py;
+        if (dx*dx + dy*dy < 144) hovered = { core, el };
+      });
+      // 命中核心
+      const dx = mouse.x - p.x, dy = mouse.y - p.y;
+      if (dx*dx + dy*dy < R*R) hovered = { core, el: null };
+      // 名字：胶囊底，避免几个核的标签叠在一起看不清
+      const ly = p.y + R + 16;
+      const sub = DATA.asleep && core.key === 'emotion' ? '睡着中' : core.subtitle;
+      ctx.font = '600 12px -apple-system, "PingFang SC", sans-serif';
+      const tw = ctx.measureText(core.name).width + 14;
+      ctx.fillStyle = 'rgba(10,13,18,0.72)';
+      roundRect(p.x - tw/2, ly - 11, tw, 17, 8);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(240,244,250,0.96)';
+      ctx.textAlign = 'center';
+      ctx.fillText(core.name, p.x, ly + 1);
+      ctx.font = '10px -apple-system, "PingFang SC", sans-serif';
+      const sw = ctx.measureText(sub).width + 12;
+      ctx.fillStyle = 'rgba(10,13,18,0.55)';
+      roundRect(p.x - sw/2, ly + 7, sw, 14, 7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(150,160,175,0.9)';
+      ctx.fillText(sub, p.x, ly + 18);
+      ctx.textAlign = 'left';
+    }
+  }
+  if (new URLSearchParams(location.search).get('debug')) {
+    ctx.fillStyle = '#9ece6a'; ctx.font = '11px monospace';
+    let n = 0;
+    for (const { core, p } of (window.__pts || [])) {
+      ctx.fillText(`${core.name} x=${Math.round(p.x)} y=${Math.round(p.y)} R=${Math.round(40*p.s)}`, 12, 70 + (n++) * 14);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${Math.max(0,Math.min(1,a))})`;
+}
+
+const mouse = { x: -999, y: -999 };
+c.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+function renderPanel(h) {
+  const body = document.getElementById('panelBody');
+  const title = document.getElementById('panelTitle');
+  if (!DATA) return;
+  if (!h) { title.textContent = '活跃要素'; body.innerHTML = '<span style="color:#6e7781">把鼠标移到某个核心上</span>'; return; }
+  const core = h.core;
+  title.textContent = core.name;
+  const els = [...(core.elements||[])].sort((a,b) => (b.activity||0) - (a.activity||0));
+  const color = COLORS[core.key] || '#888';
+  body.innerHTML = els.map(el => {
+    const v = Math.round((el.activity||0) * 100);
+    return `<div class="el"><span class="n">${esc(el.name)}</span>
+      <span class="bar"><i style="width:${v}%;background:${color}"></i></span></div>`;
+  }).join('') + (DATA.asleep && core.key === 'emotion' ? '<div class="sleep">睡着中，醒来会恢复</div>' : '');
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+load(); setInterval(load, 5000); requestAnimationFrame(draw);
+setInterval(() => renderPanel(hovered), 400);
+</script>
+</body>
+</html>
