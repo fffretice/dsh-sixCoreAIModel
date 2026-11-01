@@ -1,210 +1,212 @@
-# 安装指南（从这里开始）
+# Installation
 
-> 这份文档写给**两个人**：你和你的 DSH。
-> 你可以自己照着做；也可以把 `AGENTS.md` 丢给 DSH，让它带着你走完。
-> 全程大约 30–60 分钟，其中一半时间在等下载和扫码。
+> Written for two readers: **you**, and **your DSH agent**. If you want the agent to do it,
+> hand it [`AGENTS.md`](AGENTS.md) and say "install this for me".
+> Budget 30–60 minutes; half of that is downloads and one QR scan.
 
 ---
 
-## 0. 先看清「谁做什么」
+## 0. Who does what
 
-这套系统分三层，装的时候必须按顺序，少一层都跑不起来：
+Three layers, and they must be installed in this order:
 
-| 层 | 是什么 | 谁来做 |
+| Layer | What it is | Who does it |
 | --- | --- | --- |
-| **DSH** | 承载模型、工具与插件的运行时 | 你装 App/包；DSH 自己管自己 |
-| **SnowLuma** | 把 QQ 协议转成 OneBot 的网关（要扫码登录） | 你下载、扫码；**不能替你扫码** |
-| **SurfCore** | 桥接 + 六个核心 + 插件，也就是「她」 | 你跑几条命令；大部分能自动化 |
+| **DSH** | the runtime that hosts the model, tools and plugins | you install the app; DSH manages itself |
+| **SnowLuma** | OneBot gateway that bridges QQ protocol (needs a QR login) | you download it and scan the code — **nobody can do this for you** |
+| **SurfCore** | bridge + six cores + plugin, i.e. "her" | a few commands, mostly automatic |
 
-**只有你能做的事**（程序替不了）：
-1. 用手机 QQ 扫码登录 SnowLuma；
-2. 提供你的 QQ 号、要放她进去的群号；
-3. 决定她叫什么、是什么性格（写 `roles/<名字>.md`）；
-4. 如果要用语音/画图：自己准备音色和模型（见 `docs/OPTIONAL.md`）。
+**Only you can do these** (no program can):
+1. Scan the QR code to log the QQ account into SnowLuma.
+2. Provide your QQ number and the group ID she should join.
+3. Decide her name and personality (write `surfcore/roles/<name>.md`).
+4. If you want voice or image generation: supply the models yourself (see [OPTIONAL.md](docs/OPTIONAL.md)).
 
 ---
 
-## 1. 装前置
+## 1. Prerequisites
 
-| 需要 | 版本 | 检查命令 | 说明 |
+| Need | Version | Check | Notes |
 | --- | --- | --- | --- |
-| DeepSeek Harness | ≥ 0.2.1-rc.2 | 打开 App 能看到设置页 | 主程序 |
-| Node.js | ≥ 22.13 | `node -v` | 桥接和脚本都跑在 Node 上 |
-| npm | 随 Node | `npm -v` | 装依赖 |
-| SnowLuma | 最新版 | 见第 3 步 | OneBot 网关，第三方，不随本项目分发 |
-| QQ 小号 | — | — | 建议用小号，别用主号 |
+| DeepSeek Harness | ≥ 0.2.1-rc.2 | app opens to Settings | the host runtime |
+| Node.js | ≥ 22.13 | `node -v` | bridge and scripts run on Node |
+| npm | ships with Node | `npm -v` | |
+| SnowLuma | latest | see step 3 | third-party OneBot gateway, not bundled |
+| a spare QQ account | — | — | use a secondary account, not your main one |
 
-平台差异：
-- **Windows**：DSH 与 SnowLuma 都有原生包，最省事 → 看 [docs/INSTALL-Windows.md](docs/INSTALL-Windows.md)
-- **macOS**：DSH 有原生包；SnowLuma 没有 macOS 版，要用 arm64 Docker 跑 → 看 [docs/INSTALL-macOS.md](docs/INSTALL-macOS.md)
+Platform notes:
+- **Windows**: DSH and SnowLuma both have native builds — the easy path → [docs/INSTALL-Windows.md](docs/INSTALL-Windows.md)
+- **macOS**: DSH is native; SnowLuma has no macOS build, so it runs in arm64 Docker → [docs/INSTALL-macOS.md](docs/INSTALL-macOS.md)
 
 ---
 
-## 2. 拿到代码
+## 2. Get the code
 
-把整个 `yourDaughter` 文件夹放到一个**路径里没有空格和中文**的地方，例如：
+Put the folder somewhere **without spaces or non-ASCII characters** in the path:
 
-- Windows：`D:\yourDaughter`
-- macOS：`~/yourDaughter`
-
-然后：
+- Windows: `D:\dsh-sixCoreAIModel`
+- macOS: `~/dsh-sixCoreAIModel`
 
 ```bash
-cd yourDaughter/surfcore
+cd surfcore
 npm install
 ```
 
-> 这一步会装 `js-yaml` 等依赖。国内网络慢可以加镜像：
-> `npm install --registry=https://registry.npmmirror.com`
+> If the network is slow: `npm install --registry=https://registry.npmmirror.com`
 
 ---
 
-## 3. 装 SnowLuma 并登录 QQ
+## 3. SnowLuma + QQ login
 
-SnowLuma 是第三方 OneBot 实现，**本项目不包含它**，也不修改它。
+SnowLuma is a third-party OneBot implementation. **It is not bundled here** and is not modified by this project.
 
-1. 下载并启动 SnowLuma（Windows 直接跑 exe；macOS 用 Docker，见平台文档）。
-2. 用它登录你的 QQ 小号（手机扫码）。
-3. 确认它的 OneBot HTTP 服务在 `http://127.0.0.1:3000`、WebSocket 在 `ws://127.0.0.1:3001`。
-4. 在 SnowLuma 的设置里找到 **access token**（有的版本叫「鉴权 token」），复制下来，下一步要用。
+1. Download and start SnowLuma (native exe on Windows; Docker on macOS — see the platform guide).
+2. Log in your QQ account with the QR code.
+3. Confirm the OneBot endpoints: HTTP on `http://127.0.0.1:3000`, WebSocket on `ws://127.0.0.1:3001`.
+4. Copy the **access token** from SnowLuma's settings (sometimes called "auth token"); you need it in step 4.
 
-验证：
+Verify:
 
 ```bash
-curl -H "Authorization: Bearer <你的token>" http://127.0.0.1:3000/get_login_info
+# macOS / Linux
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:3000/get_login_info
+```
+```powershell
+# Windows (note curl.exe — plain curl is aliased to Invoke-WebRequest)
+curl.exe -H "Authorization: Bearer <token>" http://127.0.0.1:3000/get_login_info
 ```
 
-返回里有你的 QQ 号和昵称，就说明网关通了。
+If it returns your QQ number and nickname, the gateway is up.
 
 ---
 
-## 4. 写配置
+## 4. Configure
 
 ```bash
 cp config.example.json config.json      # Windows: copy config.example.json config.json
 ```
 
-打开 `config.json`，**只需要改这几处**（其余保持默认）：
+Open `config.json` and change **only these** (leave the rest at defaults):
 
 ```jsonc
 {
-  "ownerQQ": 123456789,                  // 你自己的 QQ 号（管理员）
+  "ownerQQ": 123456789,                  // your own QQ number (the admin)
   "snowluma": {
-    "accessToken": "粘贴第 3 步的 token",
+    "accessToken": "paste the token from step 3",
     "wsUrl": "ws://127.0.0.1:3001",
     "httpUrl": "http://127.0.0.1:3000"
   },
   "allow": {
-    "private": [123456789],              // 允许私聊她的 QQ 号（先只放你自己）
-    "groups": [987654321]                // 允许她进的群号（先放一个测试群）
+    "private": [123456789],              // who may DM her — start with only yourself
+    "groups": [987654321]                // which groups may she join — start with one test group
   },
   "socialV2": {
-    "interests": {                       // 她关心什么（可留空）
-      "mascot": [],                      // 招牌词：命中算「强兴趣」
-      "topics": []                       // 一般兴趣
+    "interests": {                       // optional: her topics (empty = no boost)
+      "mascot": [],                      // the "signature" word — strong interest
+      "topics": []                       // ordinary interests
     },
     "identityGuard": {
-      "forbiddenNames": []               // 如果你借了某个角色的音色，把那个名字填进来
+      "forbiddenNames": []               // if you cloned a character's voice, list that name here
     }
   }
 }
 ```
 
-> `consoleToken` 留空也行——第一次启动会自动生成，写到 `state/console-token`，
-> 控制台地址是 `http://127.0.0.1:3100/?token=<那个值>`。
+> `consoleToken` may stay empty — one is generated on first start and written to
+> `state/console-token`. The console URL is `http://127.0.0.1:3100/?token=<that value>`.
 
-**几个容易踩的点**：
-- 群号/QQ 号写**数字**，不要加引号也行，但别写成字符串带空格；
-- `allow` 是白名单：不在里面的群，她连消息都收不到（这是安全边界，不是 bug）；
-- 想让另一个群也能用，把它加到 `allow.groups` 再重启。
+**Common mistakes**
+- IDs must be numbers (quotes are fine, stray spaces are not).
+- `allow` is an allow-list: messages from groups that are not listed never reach the model. That is a security boundary, not a bug.
+- To add another group later, append its ID to `allow.groups` and restart the bridge.
 
 ---
 
-## 5. 造一个角色
+## 5. Create a character
 
 ```bash
-node scripts/init-character.mjs --name 女儿 --owner 123456789
+node scripts/init-character.mjs --name Daughter --owner 123456789
 ```
 
-它会做三件事：
-1. 用 `roles/_TEMPLATE.md` 生成 `roles/女儿.md`；
-2. 用 `roles/_TEMPLATE.规则.md` 生成 `roles/女儿.规则.md`；
-3. 写 `state/current-role.json`，让桥接知道当前用哪个角色。
+It does three things:
+1. generates `roles/Daughter.md` from `roles/_TEMPLATE.md`;
+2. generates `roles/Daughter.规则.md` from `roles/_TEMPLATE.规则.md`;
+3. writes `state/current-role.json` so the bridge knows which role is active.
 
-然后**打开 `roles/女儿.md` 开始写**。这一步决定她像不像人，比所有配置加起来都重要。
-怎么写见 [docs/CHARACTER.md](docs/CHARACTER.md)；想先看个填好的例子：`roles/傲娇助手.md`。
+Then **open `roles/Daughter.md` and write it**. This step decides whether she reads as a person;
+it matters more than every other setting combined. How to write it: [docs/CHARACTER.md](docs/CHARACTER.md).
+A filled-in example: `surfcore/roles/傲娇助手.md`.
 
 ---
 
-## 6. 装 DSH 端
+## 6. Install into DSH
 
 ```bash
 node scripts/setup-dsh.mjs
 ```
 
-它会把三样东西装进 DSH：
-- 两个 agent preset（`qq-chat` / `qq-chat-v2`）——决定她在 QQ 里能用哪些工具、怎么说话；
-- 三个 MCP server（`snowluma` / `snowluma-host` / `web-search-safe`）；
-- `surfcore` 插件 bundle（设置窗口 + 监控台 + B站工具）。
+This installs three things into DSH:
+- two agent presets (`qq-chat` / `qq-chat-v2`) — which tools she gets in QQ, and how she speaks there;
+- three MCP servers (`snowluma` / `snowluma-host` / `web-search-safe`);
+- the `surfcore` plugin bundle (settings page + console + Bilibili tools).
 
-装完**重启 DSH**，然后在 `设置 → SurfCore` 里点一次「诊断 → 一键安装」。
-（如果设置里看不到 SurfCore，按 F5 刷新页面，或确认 `setup-dsh.mjs` 没报错。）
+Then **restart DSH**, open `Settings → SurfCore` and click "Diagnose → Install all" once.
+(If SurfCore does not appear in Settings, press F5 — the plugin list is a snapshot taken at page load.)
 
 ---
 
-## 7. 启动
+## 7. Start
 
-两种方式，选一个：
+Either:
 
-**A. 让插件自己起（推荐）**
-重启 DSH 后，插件会按 `config.json` 自动拉起桥接。
+**A. Let the plugin start it (recommended)** — after restarting DSH, the plugin launches the bridge from `config.json`.
 
-**B. 手动起，方便看日志**
+**B. Start manually (easier to watch logs)**
 ```bash
 cd surfcore
 npm start
 ```
 
-看到这几行就说明起来了：
+You should see:
 
 ```
-[bridge] SnowLuma 已连接：ws://127.0.0.1:3001
-[bridge] 机器人昵称: xxx
-[bridge] DSH 已就绪（模式: reserved2）
+[bridge] SnowLuma connected: ws://127.0.0.1:3001
+[bridge] bot nickname: xxx
+[bridge] DSH ready (mode: reserved2)
 ```
 
 ---
 
-## 8. 验收清单
+## 8. Acceptance checklist
 
-按顺序过一遍，任何一步不对就停下来看 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)：
+Go through these in order; if one fails, stop and read [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md):
 
-- [ ] `curl http://127.0.0.1:3100/api/status -H "x-console-token: $(cat state/console-token)"` 返回 `"ok":true`
-- [ ] 控制台能看到「当前角色」是你起的名字
-- [ ] 私聊她说一句「在吗」，她回你（第一次可能要等十几秒）
-- [ ] 群里 @ 她，她能接
-- [ ] 控制台「情绪」页五个值在 0–1 之间跳动
-- [ ] 过十分钟再看，情绪值变了（说明 tick 在跑）
-- [ ] 她主动说话的那次，控制台「因果」里能看到一条待结算
-
----
-
-## 9. 接下来做的事
-
-1. **把性格卡写完整**：`roles/女儿.md` 的「二、说话风格」和「三、内在」是最影响真实感的。
-2. **跑一天再看**：情绪和驱力需要时间积累，刚装的半小时看不出东西。
-3. **调额度**：`socialV2.tokenGuard` 控制每天唤醒次数和花费上限，默认 80 次/天、¥15/天。
-4. **接可选能力**：语音、画图、B站（见 `docs/OPTIONAL.md`）。
-5. **备份**：`state/` 和 `roles/` 就是她的全部；定期打包。
+- [ ] `curl -H "x-console-token: $(cat state/console-token)" http://127.0.0.1:3100/api/status` returns `"ok":true`
+- [ ] the console shows your character name as the current role
+- [ ] DM her "hello" — she replies (the first reply can take ~10 s)
+- [ ] @-mention her in the group — she responds
+- [ ] the console's emotion page shows five values moving between 0 and 1
+- [ ] ten minutes later, those values have changed (the tick is running)
+- [ ] after she speaks on her own, the console's causal page shows a pending settlement
 
 ---
 
-## 10. 升级与卸载
+## 9. What to do next
 
-**升级**：保留 `config.json`、`roles/`、`state/`、`characters/`，替换其余文件，再 `npm install`。
+1. **Finish the character card** — sections "二、说话风格" (speaking style) and "三、内在" (interior) matter most.
+2. **Let it run for a day** — affect and drive need time to accumulate; the first 30 minutes tell you nothing.
+3. **Tune the budget** — `socialV2.tokenGuard` caps wakes per day and spend per day (default 80 wakes, ¥15).
+4. **Add optional abilities** — voice, image generation, Bilibili (see [OPTIONAL.md](docs/OPTIONAL.md)).
+5. **Back up** — `state/` and `roles/` are all of her; archive them now and then.
 
-**卸载**：
+---
+
+## 10. Upgrade and uninstall
+
+**Upgrade**: keep `config.json`, `roles/`, `state/` and `characters/`; replace everything else; run `npm install` again.
+
+**Uninstall**:
 ```bash
-node scripts/uninstall.mjs      # 从 DSH 里摘掉 presets / MCP / 插件
+node scripts/uninstall.mjs
 ```
-然后删掉整个目录即可。她的记忆和日记都在 `state/` 与 `roles/`，删之前想留就复制走。
+Then delete the folder. Her memory and diary live in `state/` and `roles/` — copy them out first if you want to keep them.

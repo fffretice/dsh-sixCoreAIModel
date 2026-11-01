@@ -1,147 +1,139 @@
-# 排障
+# Troubleshooting
 
-按「症状」查，不按报错查——报错千奇百怪，症状就那么几种。
-先看日志：`surfcore/state/bridge.log`（最近的）、`state/bridge-supervisor.log`（守护进程）。
+Look up by **symptom**, not by error text — there are only a handful of symptoms.
+Logs first: `surfcore/state/bridge.log` (recent) and `state/bridge-supervisor.log` (the supervisor).
 
 ---
 
-## 一、装不上
+## 1. Installation
 
-### `npm install` 报 `Cannot find module '@deepseek-ai/schemastery'`
-
-顺序错了：**先装依赖，再装插件**。
+**`Cannot find module '@deepseek-ai/schemastery'`**
+Wrong order: dependencies must be installed before the plugin.
 
 ```bash
 npm install
 node scripts/setup-dsh.mjs
 ```
 
-### 设置里找不到 SurfCore
+**SurfCore does not appear in Settings**
+1. Did `setup-dsh.mjs` error?
+2. Did you restart DSH?
+3. Press F5 (the plugin list is a snapshot from page load).
 
-1. `setup-dsh.mjs` 有没有报错？
-2. DSH 重启了吗？
-3. 页面 F5 刷新（插件列表是页面加载时的快照）。
-
-### Node 版本太低
-
-```
-Error: Cannot use import statement outside a module
-```
-
-→ `node -v` 低于 22.13。升级 Node，别用系统自带的旧版本。
+**`Cannot use import statement outside a module`**
+Node is too old. `node -v` must be ≥ 22.13. Do not use the Node bundled with an IDE.
 
 ---
 
-## 二、起来了但不说话
+## 2. It runs but she never speaks
 
-按顺序查，多数问题在第一步：
+Check in this order — most problems are the first item.
 
-### ① 桥接连上 SnowLuma 了吗
+**① Is the bridge connected to SnowLuma?**
 
 ```bash
 curl -H "x-console-token: $(cat state/console-token)" http://127.0.0.1:3100/api/status
 ```
 
-看 `snowlumaConnected`。`false` → 查 SnowLuma 是否在跑、`wsUrl` 对不对、token 对不对。
+Look at `snowlumaConnected`. `false` → is SnowLuma running? Is `wsUrl` right? Is the token right?
 
-### ② 她连上 DSH 了吗
+**② Is she connected to DSH?**
 
-同样的返回里看 `dshReady`。`false` → **DSH 重启后端口变了**，桥接还在连旧端口。
-重启桥接（`bridge-supervisor.sh` 会自动找端口）。
+Same response, `dshReady`. `false` → **DSH restarted and the port changed**; the bridge is still on the old one.
+Restart the bridge (`bridge-supervisor.sh` rediscovers the port).
 
-### ③ 白名单对吗
+**③ Is the group whitelisted?**
 
-`allow.groups` / `allow.private`。不在里面的会话，消息**根本不会进模型**，
-不是「看了不回」——所以表现就是完全没反应。
+`allow.groups` / `allow.private`. Messages from sessions that are not listed **never reach the model** —
+not "read but ignored", simply dropped. The symptom is total silence.
 
-### ④ 额度用完了吗
+**④ Is the wake budget exhausted?**
 
 ```bash
-cat state/mood.json | head -20      # 看 asleep / 五个值
-tail -50 state/bridge.log | grep -E '额度|quota|唤醒'
+tail -50 state/bridge.log | grep -iE 'quota|budget|wake'
+cat state/mood.json          # asleep flag and the five values
 ```
 
-默认每天 80 次群唤醒、120 次私聊、¥15。用完后她会安静到第二天零点。
+Defaults: 80 group wakes/day, 120 private, ¥15/day. When exhausted she stays quiet until midnight.
 
-### ⑤ 她是不是睡着了
+**⑤ Is she asleep?**
 
-耐心 < 0.08 或精力 < 0.12 时会随机睡 40–90 分钟。`mood.json` 里 `asleep: true` 就是。
-这期间只有 @ / 叫名字 / 提问 / 私聊 / 日记时段能叫醒她。
+Patience < 0.08 or energy < 0.12 puts her to sleep for a random 40–90 minutes (`asleep: true` in `mood.json`).
+Only @-mention, name, question, DM or the diary slot wakes her.
 
 ---
 
-## 三、回得不像人
+## 3. She replies, but sounds wrong
 
-| 现象 | 原因 | 改哪 |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
-| 每条都很长 | 人格卡没写长度约束 | `roles/<名字>.md` 的「二、说话风格」 |
-| 爱列点、爱总结 | 提示里「汇报」场合太多 | 少让她总结；检查规则卡别写「汇报」 |
-| 总是用同一句开头 | 口癖写太多，或记忆里反复出现 | 删口癖、清记忆 |
-| 像客服 | 人格卡写了「温柔」「专业」这类词 | 换成可观察的写法 |
-| 群里不说话 | 唤醒概率低 / 情绪低 | `socialV2.wake.recommendedProbability`，或看情绪 |
+| every reply is long | no length constraint in the card | `roles/<name>.md` → speaking style |
+| bullet lists, summaries | too many "report to me" occasions | stop asking for summaries; check the rule card |
+| always the same opener | too many verbal tics, or repetitive memory | remove tics, trim memory |
+| assistant voice | the card uses words like "gentle", "professional" | rewrite with observable features |
+| silent in groups | low wake probability, or low mood | `socialV2.wake.recommendedProbability`, or check emotion |
 
-**根治办法**：`docs/CHARACTER.md` 的「二、说话风格」重写一遍，比调任何参数都有效。
+**Root fix**: rewrite the "speaking style" section per [CHARACTER.md](CHARACTER.md). That beats any parameter tuning.
 
 ---
 
-## 四、情绪不对
+## 4. Emotion behaves badly
 
-| 现象 | 原因 | 处理 |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
-| 五个值长期不动 | tick 没跑（桥接没在运行） | 看 `/api/status` 的 `uptime` |
-| 某个值钉在 0 或 1 | 速率参数调到极端 | 改 `src/mood.js` 的衰减/恢复速率，重启 |
-| 一直睡着 | 精力/耐心基线太低 | 改 `mood.js` 里 `energyBaseline` 或睡眠阈值 |
-| 社交长期满格 | 恢复速率过高 | 社交上限 0.95、>0.85 时恢复 ×0.3，仍满就再降 |
+| values never move | tick not running (bridge down) | check `uptime` in `/api/status` |
+| a value pinned at 0 or 1 | rate parameter pushed to an extreme | adjust decay/recovery in `src/mood.js`, restart |
+| always asleep | baselines too low | `energyBaseline` or sleep thresholds in `mood.js` |
+| social pinned at the ceiling | recovery rate too high | cap 0.95 already; lower the recovery rate further |
 
-> 这一类「速率参数」最容易从一头滑到另一头。改完**跑两小时**再看，别只看一眼。
-
----
-
-## 五、记忆不对劲
-
-- **记不住刚说的话**：`~/.dsh/surfcore/characters/<id>/memory/` 有没有新写入？
-  没有就是 `characters/current.json` 指向错了。
-- **记得太多、上下文爆炸**：`memory-card` 有注入上限（默认 4313 字符），超了会截断；
-  想更狠就调 `config.json → role.maxInjectChars`。
-- **把别人的事记成自己的**：这是提示词串了，检查 `memory-card` 的归属字段。
+> Rate parameters slide from one extreme to the other. After changing one, **let it run two hours** before judging.
 
 ---
 
-## 六、主动说话太频繁 / 从不说
+## 5. Memory
 
-| 方向 | 旋钮 |
+- **She forgets what was just said** — is `characters/current.json` pointing at the right character?
+  Check whether `~/.dsh/surfcore/characters/<id>/memory/` is being written.
+- **Context too large** — the memory block is capped (default 4,313 chars). Lower `role.maxInjectChars`.
+- **She attributes someone else's memory to herself** — a prompt-assembly bug; check the ownership fields in the memory card.
+
+---
+
+## 6. She talks too much / never initiates
+
+| Direction | Knob |
 | --- | --- |
-| 太频繁 | `socialV2.wake.recommendedProbability` 调低；`tokenGuard.maxWakesPerDay` 调低 |
-| 从不说 | 看 `state/drive.json` 的 `drive` 值；阈值 0.62，低于它不会主动 |
-| 只在群里说、不私聊 | 私聊主动需要 `drive > 0.62` 且距上次 ≥2 小时 |
+| too often | lower `socialV2.wake.recommendedProbability`; lower `tokenGuard.maxWakesPerDay` |
+| never initiates | check `drive` in `state/drive.json`; the threshold is 0.62 |
+| initiates only in DMs | group initiative needs a quiet group **and** drive above the threshold |
 
 ---
 
-## 七、端口与控制台
+## 7. Ports and console
 
-| 症状 | 处理 |
+| Symptom | Fix |
 | --- | --- |
-| 控制台 401 | `cat state/console-token`，用 `?token=` 访问 |
-| 3100 被占 | `lsof -i:3100`（mac）/ `netstat -ano \| findstr :3100`（win），杀掉旧进程 |
-| 3000 被占 | 改 SnowLuma 或 `config.json` 的端口 |
-| 页面白屏 | 浏览器控制台看报错；多半是没带 token |
+| console 401 | `cat state/console-token`, open `?token=` |
+| 3100 in use | `lsof -i:3100` (mac) / `netstat -ano \| findstr :3100` (win), kill the old process |
+| 3000 in use | change SnowLuma's port, or `snowluma.httpUrl` |
+| blank page | check the browser console; usually a missing token |
 
 ---
 
-## 八、真要重来
+## 8. Starting over
 
 ```bash
-# 保留角色与记忆，只重装依赖和插件
+# keep character and memory, reinstall dependencies and plugin
 rm -rf node_modules && npm install
 node scripts/setup-dsh.mjs
 
-# 连运行状态一起清（会丢情绪/因果/日志）
+# clear runtime state only (loses emotion/causal/logs)
 rm -rf state/*
 
-# 全部重来（角色和记忆一起没了，先备份）
+# full reset (character and memory gone — back up first)
 cp -r roles ~/roles.bak
 rm -rf state ~/.dsh/surfcore/characters
 ```
 
-实在不行，把这三样贴出来问人：`node -v`、`config.json`（**删掉 token 再贴**）、
-`state/bridge.log` 最后 50 行。
+If you still cannot fix it, gather three things before asking for help: `node -v`,
+`config.json` (**remove the token first**), and the last 50 lines of `state/bridge.log`.

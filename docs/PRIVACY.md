@@ -1,86 +1,88 @@
-# 隐私：她能看到什么，数据去了哪里
+# Privacy: what she sees, and where the data goes
 
-这类项目的隐私风险不在「模型偷数据」，而在**你以为只在家里说的话，其实进了群、进了日志、进了上下文**。
-这份文档把边界讲清楚。
+The risk with this class of project is not "the model steals your data". It is that things you thought
+were said at home end up in a group, in a log, and in a context window. This document draws the lines.
 
 ---
 
-## 一、数据存在哪
+## 1. Where the data lives
 
-全部在**你自己的机器上**，没有云端账号、没有远程数据库：
+All local. No cloud account, no remote database:
 
-| 数据 | 位置 | 内容 |
+| Data | Location | Contents |
 | --- | --- | --- |
-| 配置 | `surfcore/config.json` | QQ 号、群号、token |
-| 角色 | `surfcore/roles/*.md` | 你写的性格与规则 |
-| 记忆卡 | `~/.dsh/surfcore/characters/<id>/` | 她记住的事、日记、B站账本 |
-| 运行状态 | `surfcore/state/` | 情绪、驱力、因果、日志、会话快照 |
-| 控制台令牌 | `surfcore/state/console-token` | 本机控制台鉴权 |
+| Config | `surfcore/config.json` | QQ numbers, group IDs, tokens |
+| Character | `surfcore/roles/*.md` | the personality and rules you wrote |
+| Memory card | `~/.dsh/surfcore/characters/<id>/` | what she remembers, the diary, Bilibili ledger |
+| Runtime state | `surfcore/state/` | emotion, drive, causal log, logs, conversation snapshots |
+| Console token | `surfcore/state/console-token` | local console auth |
 
-`state/` 里会有**原始聊天内容**（`social-v2.json` 的最近消息、`bridge.log` 的日志）。
-这是她「记得刚才在聊什么」所必需的，但也意味着：**备份 `state/` 等于备份了你们的聊天记录**。
-
----
-
-## 二、什么会离开这台机器
-
-只有两类：
-
-1. **发给模型 API 的提示词**。每轮唤醒，程序会把「人格卡 + 规则卡 + 记忆片段 + 最近若干条消息 +
-   当前情绪」拼成提示词，发给 DSH 配置的模型服务商。**群友说的话会随上下文一起发出去。**
-   这是所有云端模型的共同前提，没有例外。
-2. **你让她主动发出去的消息**（QQ 群/私聊、B站 评论/动态，如果你开了）。
-
-不会离开的：`state/` 里的原始文件、`roles/` 里的卡、日志、控制台令牌、`config.json`。
-
-> 想完全不外发，只能把模型也换成本地推理（如 Ollama + 本地模型），质量会明显下降。
-> 本项目默认用云端 API。
+`state/` contains **raw conversation content** (recent messages in `social-v2.json`, lines in `bridge.log`).
+That is what "she remembers what we were just talking about" costs — but it also means **backing up `state/`
+is backing up your chat history**.
 
 ---
 
-## 三、她在群里能看到什么
+## 2. What leaves the machine
 
-- 只看**白名单**里的群和私聊；其他会话的消息在进入模型之前就被丢弃（不是「看了不说」）。
-- 图片会进视觉上下文（`qq_get_message_images`），但只保留最近若干张。
-- **合并转发**里的内容她也能读（`qq_get_forward_msg`）——注意：别人转发的聊天记录里可能有
-  你不想外传的内容，而它会被送进模型。这是最容易忽略的一条。
+Only two things:
 
-## 四、她能做什么、不能做什么
+1. **Prompts sent to the model API.** On every wake the program assembles "personality card + rule card + memory
+   excerpts + the last N messages + current affect" and sends it to whichever provider DSH is configured with.
+   **Messages written by other people in the group go out as part of that context.** This is true of every cloud model.
+2. **Messages she sends** (QQ group/DM; Bilibili comments or posts if you enabled them).
 
-硬边界写在 `SECURITY.md`，这里只列和隐私有关的：
+What never leaves: the files in `state/`, the cards in `roles/`, the logs, the console token, `config.json`.
 
-- **不能读本机文件**（QQ 侧 preset 不挂文件工具），不能执行命令；
-- **不能把本机路径发出去**：出站文本会剥离路径、拦截凭据；
-- **不能发到白名单以外**的群或人；
-- 语音只能发「语音库」里已有的文件，不能把任意本地文件当语音外发。
+> To keep everything local you would have to run the model locally too (e.g. Ollama). Quality drops noticeably.
+> The default is a cloud API.
 
 ---
 
-## 五、你怎么清理
+## 3. What she can see in a group
+
+- Only whitelisted groups and DMs. Messages from other sessions are dropped **before** they reach the model.
+- Images enter the visual context (`qq_get_message_images`), limited to the most recent few.
+- **Merged/forwarded chat records** are readable (`qq_get_forward_msg`) — note that a forwarded log may contain
+  content you did not intend to send to a model. This is the most commonly overlooked path.
+
+## 4. What she can and cannot do
+
+Hard boundaries are in [SECURITY.md](SECURITY.md). The privacy-relevant ones:
+
+- **Cannot read local files** (the QQ-side preset mounts no file tools) and cannot execute commands.
+- **Cannot send local paths out**: outbound text is scrubbed for paths and blocked on credential patterns.
+- **Cannot send outside the whitelist.**
+- Voice can only send files that already exist in the voice library, not arbitrary local files.
+
+---
+
+## 5. How to clean up
 
 ```bash
-# 只清运行状态，保留角色和记忆卡
+# runtime state only (keeps character and memory card)
 rm -rf surfcore/state/*
 
-# 清掉某个角色的全部记忆（不可恢复）
-rm -rf ~/.dsh/surfcore/characters/<角色id>/
+# all memory of one character (irreversible)
+rm -rf ~/.dsh/surfcore/characters/<id>/
 
-# 全部重来
+# full reset
 rm -rf surfcore/state ~/.dsh/surfcore/characters surfcore/config.json
 ```
 
-清理前先 `cp -r` 备份，`state/` 删了就是真的没了。
+Back up first (`cp -r`); deleting `state/` really deletes it.
 
 ---
 
-## 六、发布这个包时我们做了什么
+## 6. What we did before publishing this repository
 
-这个仓库在开源前做过一次**逐文件剥离**，规则见 `surfcore/scripts/privacy-rules.example.json`：
+This repo went through a file-by-file sanitisation before release; the rules are in
+`surfcore/scripts/privacy-rules.example.json`:
 
-- 删除全部真实数据：记忆卡、日记、聊天记录、会话快照、备份文件、UI 截图；
-- 删除全部身份标识：QQ 号、群号、昵称、本机用户名、内网 IP、令牌与 API key；
-- 人格卡换成模板，规则卡换成模板，代码里写死的角色名改成读配置；
-- 用 `node scripts/privacy-scan.mjs` 扫过一遍（规则文件不入库，避免把「要找什么」也泄漏出去）。
+- removed all real data: memory cards, diaries, chat logs, session snapshots, backups, UI screenshots;
+- removed all identifiers: QQ numbers, group IDs, nicknames, local usernames, private IPs, tokens and API keys;
+- replaced the character cards with templates, and replaced hard-coded character names in code with config lookups;
+- ran `node scripts/privacy-scan.mjs` and `node scripts/release-audit.mjs` over the tree.
 
-**你如果要把自己的版本再分发**，务必先跑一遍那个扫描器，并把 `state/`、`roles/`、`config.json`
-加进 `.gitignore`（本仓库已经加好）。
+**If you redistribute your own fork**, run the audit first and keep `state/`, `roles/` and `config.json`
+in `.gitignore` (already done here).

@@ -1,49 +1,49 @@
-# 第三方组件与许可
+# Third-party components and licensing
 
-这个仓库**不含**任何不能合法分发的资产。下面分三类说清楚。
+This repository contains **no asset that cannot be redistributed legally**. Three categories below.
 
 ---
 
-## 一、随仓库分发的
+## 1. Shipped with the repo
 
-| 组件 | 许可 | 说明 |
+| Component | License | Notes |
 | --- | --- | --- |
-| SurfCore 本体（`surfcore/src` 等） | MIT（见 `surfcore/LICENSE`） | 本项目 |
-| 角色模板与文档 | 同 MIT | 随便改、随便用 |
-| `roles/傲娇助手.md` | 同 MIT | 一个通用示例角色，不含任何真人信息 |
+| SurfCore engine (`surfcore/src` etc.) | MIT (see `surfcore/LICENSE`) | this project |
+| Character templates and documentation | MIT | edit freely |
+| `roles/傲娇助手.md` | MIT | a generic example character, no real person |
 
-依赖（`package.json` 里的 npm 包）各自保留其许可证，`npm install` 时随包附带。
-主要依赖：`js-yaml`（MIT）。
+npm dependencies keep their own licenses; `npm install` brings them along.
+Main dependency: `js-yaml` (MIT).
 
 ---
 
-## 二、需要你自己装、本仓库不分发的
+## 2. You install these yourself; not shipped
 
-| 组件 | 为什么不分发 | 你要做什么 |
+| Component | Why not shipped | What you do |
 | --- | --- | --- |
-| **SnowLuma** | 第三方专有运行时，EULA 不允许随包分发 | 自己去 [Releases](https://github.com/SnowLuma/SnowLuma/releases) 下，扫码登录 |
-| **DeepSeek Harness** | 官方软件 | 自己装 |
-| **Node.js** | 官方运行时 | 自己装 |
-| **ComfyUI / SDXL 等模型** | 体积大 + 各自的许可证（SDXL 是 OpenRAIL++-M，商用有条件） | 想画图就自己装，见 `docs/OPTIONAL.md` |
-| **TTS / ASR 模型**（GPT-SoVITS、whisper 等） | 体积大；且音色取决于你喂的音频 | 见 `docs/OPTIONAL.md` |
+| **SnowLuma** | third-party proprietary runtime; its EULA forbids bundling | download from [Releases](https://github.com/SnowLuma/SnowLuma/releases), scan the QR |
+| **DeepSeek Harness** | vendor software | install it yourself |
+| **Node.js** | vendor runtime | install it yourself |
+| **ComfyUI / SDXL and other models** | large + separate licenses (SDXL is OpenRAIL++-M with commercial conditions) | install if you want image generation — see [OPTIONAL.md](OPTIONAL.md) |
+| **TTS / ASR models** (GPT-SoVITS, whisper) | large; the timbre depends on the audio you supply | see [OPTIONAL.md](OPTIONAL.md) |
 
 ---
 
-## 三、明确**不在**这个仓库里的东西
+## 3. Explicitly **not** in this repository
 
-- **任何人的语音包 / 克隆音色 / 参考音频**；
-- **任何 3D 模型（.pmx/.vrm/GLB）与 3D 房间工程**；
-  MMD 模型通常带「仅限 MMD 视频用途」之类的使用规约，不能随开源包分发；
-- **任何真实聊天记录、记忆卡、日记、群号、QQ 号、令牌**；
-- **任何人的 UI 截图**（已全部删除）。
+- **Any voice pack, cloned timbre or reference audio**;
+- **Any 3-D model (.pmx/.vrm/GLB) or 3-D room project** — MMD models usually carry "MMD videos only" terms and cannot
+  be redistributed in an open-source package;
+- **Any real chat log, memory card, diary, group ID, QQ number or token**;
+- **Any UI screenshot** (all removed).
 
-如果你在自己的 fork 里加了上面任何一样，**发布前请自行确认许可**，
-并跑一遍 `node scripts/privacy-scan.mjs`。
+If you add any of the above to your fork, **verify the license before publishing** and run
+`node scripts/release-audit.mjs`.
 
 ---
 
-## 四、引用与致谢
+## 4. Credits and references
 
-这套系统的设计引用了不少公开研究（情绪维度、记忆衰减、内在动机、叙事身份等），
-完整文献见仓库根目录的论文稿（如果你拿到的是带 `paper/` 的版本）。
-代码里的注释保留了「为什么这么设计」的出处，改参数前建议先读一眼。
+The design cites a fair amount of published research (affect dimensions, memory decay, intrinsic motivation,
+narrative identity). The code comments keep the "why we designed it this way" rationale; if you are about to
+change a parameter, read them first.

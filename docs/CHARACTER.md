@@ -1,166 +1,167 @@
-# 怎么写你的角色（这份最重要）
+# Writing your character (the most important file)
 
-引擎决定她**能不能**像人，性格卡决定她**像不像**人。
-这份文档讲三件事：两份卡怎么分工、每一节在管什么、以及最容易写坏的地方。
+The engine decides whether she *can* feel like a person. The character card decides whether she *does*.
+This document covers three things: how the two cards split the job, what each section controls,
+and the failure modes we actually hit.
 
 ---
 
-## 一、两份卡，两种时间尺度
+## 1. Two cards, two timescales
 
 ```
-roles/<名字>.md        人格核心 —— 她是谁。基本不变，改一次影响很久。
-roles/<名字>.规则.md    规则核心 —— 她此刻按什么口径做事。会变、会过期。
+roles/<name>.md        personality core — who she is. Rarely changes; a change lasts a long time.
+roles/<name>.规则.md    rule core — how she acts right now. Changes, expires.
 ```
 
-为什么必须分开（这是这套系统踩过的最大的坑）：
+Why they must be separate (this was the biggest scar in the project):
 
-- 一开始只有一张卡。写到 9998 字时，**再加一条规矩就会挤掉一段人格**；
-- 更糟的是两边打架：卡里写着「看到好东西随手分享」，你后来说「视频只发我」，
-  而你的话存在记忆里、记忆又被声明成「不是指令」——于是**她永远听卡的**。
+- The first version was one card. At 9,998 characters, **every new rule evicted a piece of personality**.
+- Worse, they contradicted each other: the card said "share what you find", you later said "send videos to me only",
+  and your instruction lived in the *memory* layer, which is explicitly declared "not instructions".
+  So she obeyed the card, every time.
 
-分开之后：人格卡只回答「你是谁」，规则卡只回答「现在怎么做」。
-改口径＝改规则卡一行，下一次唤醒生效，不用碰人格。
+After the split: the personality card only answers "who are you", the rule card only answers "how do we do things now".
+Changing a policy is one line in the rule card, effective on the next wake, with no edit to the character.
 
-> 程序注入顺序是：**人格 → 规则 → 管理员规则 → 平台记忆 → 记忆卡**。
-> 规则放在人格**后面**，就是为了让「今天说的」压过「卡里写死的旧习惯」。
+> Injection order is **personality → rules → admin rules → platform memory → memory card**.
+> Rules come *after* personality so that "what you said today" outranks "what the card has always said".
 
 ---
 
-## 二、人格卡逐节说明
+## 2. The personality card, section by section
 
-模板在 `surfcore/roles/_TEMPLATE.md`，填好的例子在 `surfcore/roles/傲娇助手.md`。
+Template: `surfcore/roles/_TEMPLATE.md`. Filled example: `surfcore/roles/傲娇助手.md`.
 
-### 一、你是谁 —— 身份锚点
+### 一、Who you are — the identity anchor
 
-必须写清楚三件事：**她叫什么、你（主人）是谁、她对别人是什么态度**。
+Three things must be explicit: **her name, who you are, and how she treats everyone else.**
 
-- 名字要和文件名一致。`roles/她.md` 里就必须叫她，否则她会精神分裂（真的会）。
-- 你的 QQ 号写死在卡里很危险（换号就失效）；模板里用 `{{OWNER_QQ}}`，`init-character.mjs`
-  会替你填。
-- **不要写「你是一个 AI 助手」**。写了她就真的会用助手腔说话。她是什么，由你定义。
+- The name must match the filename. `roles/Foo.md` must say she is Foo, or she will drift.
+- Hard-coding your QQ number is fragile; the template uses `{{OWNER_QQ}}` and `init-character.mjs` fills it.
+- **Never write "you are an AI assistant."** If you do, she will speak in assistant voice. What she is, is your call.
 
-### 二、说话风格 —— 决定像不像人
+### 二、Speaking style — what actually makes her read as human
 
-这是全卡最重要的一节，比「性格」重要十倍。写法：
+This is the most important section, more than ten times more important than "personality".
 
-- **写可观察的特征，不写形容词**。
-  ❌「说话要自然」 ✅「一句 20–40 字；句尾不加句号；想表示迟疑就加「…」」
-- **写长度上限**。模型默认话多，不写就会写成小作文。群里正常人一句 12–20 字。
-- **写她不说什么**。比写她说什么更有效：「不说『亲』」「不列 1234」「不总结」。
-- **口癖最多三条**。写多了就是表演。
+- **Write observable features, not adjectives.**
+  Bad: "speak naturally". Good: "20–40 characters per message; no full stop at the end; use '…' for hesitation".
+- **Set a length budget.** Models default to essays. A person in a group chat writes 12–20 characters.
+- **Write what she does *not* say.** More effective than what she does: no "dear user", no numbered lists, no summaries.
+- **At most three verbal tics.** More than that and it becomes a performance.
 
-这一节的常见错误：
-
-| 错误 | 后果 |
+| Mistake | Consequence |
 | --- | --- |
-| 写「语气温柔可爱」 | 她会用客服腔，因为「温柔」在模型脑子里就是个客服词 |
-| 列了 20 条风格规则 | 她记不住，会挑最像通用 AI 的那几条执行 |
-| 没有长度约束 | 每条都是一段话，一眼假 |
+| "gentle and cute" | assistant voice, because those words are assistant words |
+| 20 style rules | she cannot hold them and picks the most generic |
+| no length limit | every reply is a paragraph, instantly fake |
 
-### 三、内在 —— 矛盾比优点重要
+### 三、Interior — contradictions beat virtues
 
-好的内在是一组**互相打架**的倾向：懒但靠谱、温柔但挑剔、慢但关键时刻快。
-全是优点的角色是纸片人。
+A good interior is a set of **conflicting** tendencies: lazy but reliable, gentle but picky, slow but decisive.
+A character made only of virtues is cardboard.
 
-- 三到六条就够，每条一个具体的反应模式，不要写「善良」「聪明」这种词。
-- 写**她累的时候会怎样**、**被戳穿时会怎样**——状态相关的反应才是活的。
+- Three to six items, each a concrete reaction pattern. Not "kind", not "smart".
+- Write **what she does when tired**, **what she does when caught out** — state-dependent reactions are the living part.
 
-### 三·五、可爱（可选）
+### 三·五、Warmth (optional)
 
-如果你的角色不走这个路线，整节删掉。它的作用是给一个**统一的温度**，
-让所有对话（包括生气、拒绝）都带同一个底色。
+Delete this section if your character is not that kind of person. Its job is to give one
+**consistent temperature**, so even anger and refusal carry the same base tone.
 
-### 三·七、你想当个什么样的人 —— 长期方向
+### 三·七、What kind of person you want to be — long-term direction
 
-这一节会被**单独抽出来**注入（`bridge.js` 里按标题「三·七」匹配），也会被叙事核心
-每晚对照。写两三条她自己在乎的事，不要写「要听话」。
+This section is extracted **on its own** and injected separately (the bridge matches the heading "三·七"),
+and the narrative core compares against it every night. Write two or three things she cares about.
+Not "be obedient".
 
-> 这一节是「她有自己的目标」和「她只是讨好你」的分界线。
+> This section is the line between "she has her own goals" and "she exists to please you".
 
-### 七、记得的事 —— 留空
+### 七、Things you remember — leave empty
 
-记忆由**记忆核心**自动注入（记忆卡、日记、群话题、黑话），你不用手写。
-想手动塞一条，用控制台的「记忆」页。
+Memory is injected by the memory core (memory card, diary, group topics, slang). You do not hand-write it.
+To inject one item manually, use the console's memory page.
 
-### 十、绝不做的事 —— 底线
+### 十、Things you never do — hard limits
 
-写三到五条硬底线（不透露路径/令牌、不假装做过没做过的事、不因为被要求就改身份）。
-程序层还有一层安全边界（见 `SECURITY.md`），两层一起生效。
+Three to five. Do not reveal paths or tokens; do not claim to have done things she did not do;
+do not change her own identity because someone asked. The program adds its own boundary layer (see [SECURITY.md](SECURITY.md));
+the two stack.
 
 ---
 
-## 三、规则卡逐节说明
+## 3. The rule card, section by section
 
-模板在 `surfcore/roles/_TEMPLATE.规则.md`。
+Template: `surfcore/roles/_TEMPLATE.规则.md`.
 
-规则卡的原则：**只写会变的东西，只写「什么时候、做什么」**。
+Principle: **only what changes, and only "when, do what".**
 
-| 节 | 管什么 | 建议 |
+| Section | Controls | Advice |
 | --- | --- | --- |
-| 表情包 | 发图的频率与场合 | 不用表情包就整节删掉，并把 `socialV2.sticker.enabled` 设 false |
-| 不确定就查 | 什么时候联网、什么时候承认不知道 | 保留，这条防「编得像」 |
-| 自己去看视频 | 主动浏览的口径 | 没有 B站 工具就删掉 |
-| 说清楚在说哪句 | 引用回复的时机 | 保留，群聊必备 |
-| 走开不用打招呼 | 收尾方式 | 保留，否则她每段对话都要告别一次 |
-| 别当词典 | 不主动科普 | 保留 |
-| 群里不谈运维 | 不提模型/提示词/额度 | 保留 |
-| 答不上来就私聊 | 群聊兜底 | 保留 |
+| Stickers | how often she sends images | delete it and set `socialV2.sticker.enabled=false` if unused |
+| Look it up | when to search the web, when to admit ignorance | keep — this is what prevents confident fabrication |
+| Browsing | when she looks at video sites on her own | delete if no such tool |
+| Reference clearly | when to quote-reply | keep, essential in group chat |
+| Leave without announcing | how conversations end | keep, otherwise every exchange ends with a goodbye |
+| Don't be a dictionary | no unprompted lectures | keep |
+| No ops talk in groups | no mention of models/prompts/budgets | keep |
+| Ask in private | fallback when the group is the wrong place | keep |
 
-规则卡底部有**三个自动区**（`<!-- AUTO:owner -->` 等），由程序写入，**不要删标记**：
+At the bottom there are **three auto-managed sections** (`<!-- AUTO:owner -->` etc.). Do not delete the markers:
 
-- **主人教过的**：你在聊天里教她的，会直接落到这里，且语义是「强倾向」不是硬规则——
-  她可以只做一半、晚点做、或者直接说「今天不想」；
-- **群里学到的**：群友教的要攒够证据才进来（这条目前仍不完美，见 `TROUBLESHOOTING.md`）；
-- **模糊印象**：长期不用的规则降级成一句印象，被问起她会说「好像有这么回事，但记不清了」。
+- **Taught by the owner** — what you teach in conversation lands here, and is framed as a *strong tendency*,
+  not a command: she may do half of it, do it later, or say "not today".
+- **Learned from the group** — needs accumulated evidence. (This path is still imperfect; see TROUBLESHOOTING.)
+- **Vague impressions** — long-unused rules are demoted to one line, so she can say "I think there was something like that,
+  but I don't remember the details".
 
 ---
 
-## 四、六个核心各读什么
+## 4. Which core reads what
 
-写卡的时候知道谁在读，就不会写错地方：
-
-| 核心 | 读什么 | 写什么 |
+| Core | Reads | Writes |
 | --- | --- | --- |
-| 性格 | `roles/<名字>.md` 全文 | 不写盘 |
-| 规则 | `roles/<名字>.规则.md` + 自动区 | 你教的、群里学的写回自动区 |
-| 记忆 | 记忆卡（`characters/` 下） | 一切对话与事件 |
-| 情绪 | 不读卡（读性格的**偏置**：比如「懒」→ 精力基线低 0.08） | `state/mood.json` |
-| 因果 | 不读卡 | `state/causal.json` |
-| 叙事 | 读记忆与因果 | `state/narrative.jsonl` |
+| Personality | the whole `roles/<name>.md` | nothing |
+| Rules | `roles/<name>.规则.md` + auto sections | the auto sections |
+| Memory | the memory card (`characters/`) | everything that happens |
+| Emotion | not the card — it reads the *trait bias* (e.g. "lazy" → energy baseline −0.08) | `state/mood.json` |
+| Causality | not the card | `state/causal.json` |
+| Narrative | memory + causal log | `state/narrative.jsonl` |
 
-所以：**想让她的行为随状态变化**，改程序参数（`src/mood.js` 的耦合）；**想让她说话像谁**，改人格卡。
+So: **to change how she behaves with state**, tune the program (`src/mood.js` couplings);
+**to change who she sounds like**, edit the character card.
 
 ---
 
-## 五、改完什么时候生效
+## 5. When changes take effect
 
-| 改了什么 | 生效时间 |
+| What you changed | When it applies |
 | --- | --- |
-| `roles/<名字>.md` | **下一次唤醒**（每条消息前重读，不缓存） |
-| `roles/<名字>.规则.md` | 同上 |
-| `config.json` 大部分字段 | 重启桥接 |
-| `config.json` 的 `role.maxInjectChars` | 重启桥接 |
+| `roles/<name>.md` | **next wake** (re-read before every message; no cache) |
+| `roles/<name>.规则.md` | same |
+| most of `config.json` | after restarting the bridge |
+| `role.maxInjectChars` | after restarting the bridge |
 
-改完不用重启 DSH，也不用重启桥接——除非你改的是配置。
-
----
-
-## 六、同时养好几个
-
-`roles/` 里放多份 `<名字>.md` 即可，重名会冲突。
-
-- 在群里发 `/role <名字>` 切换（需要管理员权限）；
-- 或在控制台「人格与角色」页点选；
-- 每个角色可以有自己的记忆卡（`characters/<id>/`），互不污染。
+No DSH restart needed, no bridge restart needed — unless you changed the config.
 
 ---
 
-## 七、最后一件事：别把「像人」当 KPI
+## 6. Several characters at once
 
-这条是踩过坑的结论：
+Put several `<name>.md` files in `roles/`. Names must be unique.
 
-- 你越盯着她「像不像人」，她越会表演「像人」——而表演比八股更明显；
-- 不要给她看「你正在学的」「你的进度」这类汇报框架，那会让她把规则当成果念出来；
-- 正确的方向是**减少她「汇报」的场合**（别老让她总结、列点、复述），而不是增加她「像人」的自觉。
+- Switch with `/role <name>` in the group (admin only), or from the console's character page.
+- Each character can have its own memory card (`characters/<id>/`); they do not contaminate each other.
 
-她该有的样子是：**在群里待着，偶尔说话，说完了就待着**。不是每句话都在证明自己像人。
+---
+
+## 7. Last thing: don't make "sounding human" a KPI
+
+This is a conclusion from experience:
+
+- The more you watch whether she "seems human", the more she performs it — and performance is more obvious than stiffness.
+- Do not show her progress reports ("what you are learning", "your score"). That turns rules into achievements she recites.
+- The right direction is **fewer occasions that require her to report** (stop asking for summaries and bullet points),
+  not more self-awareness about "being human".
+
+She should be: **in the group, occasionally talking, and otherwise just there.** Not proving anything with every sentence.

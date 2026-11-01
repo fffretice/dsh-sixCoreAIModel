@@ -1,57 +1,55 @@
-# macOS 部署
+# macOS installation
 
-在 Mac 上跑这套东西，唯一麻烦的是 **SnowLuma 没有 macOS 原生版**，得用 Docker 跑它的 Linux 镜像。
-除此之外（DSH、Node、SurfCore）都是原生的。
+On a Mac the only awkward part is **SnowLuma: there is no macOS build**, so it runs as a Linux
+container through Docker. Everything else (DSH, Node, SurfCore) is native.
 
-> 适用于 Apple Silicon（M1/M2/M3/M4）与 Intel Mac。下面的命令都在「终端」里执行。
+> Works on Apple Silicon (M1–M4) and Intel Macs. All commands go in Terminal.
 
 ---
 
 ## 1. Node.js
 
-推荐用 Homebrew：
-
 ```bash
 brew install node@22
-node -v        # 需要 >= v22.13
+node -v            # must be >= v22.13
 ```
 
-没有 Homebrew 就去 [nodejs.org](https://nodejs.org) 下 pkg 安装包。
+No Homebrew? Install the pkg from [nodejs.org](https://nodejs.org).
 
 ---
 
 ## 2. DeepSeek Harness
 
-装 macOS 版 DSH（dmg 拖进 Applications 即可）。首次启动它会自己建 `~/.dsh/`。
-先别急着关，后面的插件安装要连它。
+Install the macOS build (drag the `.dmg` into Applications) and launch it once so `~/.dsh/` is created.
+Leave it running — the plugin install later needs it.
 
 ---
 
-## 3. SnowLuma（Docker）
+## 3. SnowLuma (Docker)
 
-### 3.1 装 Docker 运行时
+### 3.1 Docker runtime
 
-二选一：
+Pick one:
 
 ```bash
-# A. Colima（轻量，推荐；命令行）
+# A. Colima — lightweight, CLI only (recommended)
 brew install colima docker
 colima start --cpu 2 --memory 4
 
-# B. Docker Desktop（图形界面）
-#    从 docker.com 下载安装，启动后在菜单栏看到招牌词图标即可
+# B. Docker Desktop — GUI
+#    download from docker.com, launch it, wait for the whale icon in the menu bar
 ```
 
-验证：
+Verify:
 
 ```bash
-docker ps      # 不报错就说明运行时通了
+docker ps        # no error means the runtime is up
 ```
 
-### 3.2 起 SnowLuma
+### 3.2 Start SnowLuma
 
-把仓库里的参考 compose 存到任意目录（例如 `~/snowluma/docker-compose.yml`），内容就是
-[`snowluma-compose.yml`](snowluma-compose.yml)。然后：
+Save the reference compose file from this repo as `~/snowluma/docker-compose.yml`
+(it is [`snowluma-compose.yml`](snowluma-compose.yml)), then:
 
 ```bash
 cd ~/snowluma
@@ -59,94 +57,97 @@ docker compose up -d
 docker compose logs -f --tail=50
 ```
 
-第一次会拉镜像（约几百 MB），等它起来。
+The first run pulls a few hundred MB.
 
-### 3.3 扫码登录
+### 3.3 QR login
 
-浏览器打开 **`http://127.0.0.1:6081`**（noVNC 画面），里面是 SnowLuma 的界面：
+Open **`http://127.0.0.1:6081`** (noVNC). Inside is SnowLuma's UI:
 
-1. 输入 QQ 号；
-2. 点登录，出现二维码；
-3. 用手机 QQ 扫码，确认。
+1. enter the QQ number;
+2. click login → QR code appears;
+3. scan it with mobile QQ and confirm.
 
-登录成功后，检查网关：
+Then check the gateway:
 
 ```bash
-curl http://127.0.0.1:3000/get_login_info      # 没设 token 时
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:3000/get_login_info
 ```
 
-如果镜像设了 token，就带 `-H "Authorization: Bearer <token>"`。
-
-> **macOS 的坑**：Docker 容器里跑 QQ，扫码窗口偶尔会黑屏。刷新 `6081` 页面即可；
-> 还不行就 `docker compose restart` 再看。
+> **macOS gotcha**: the QQ window inside the container occasionally renders black. Reload the
+> `6081` page; if that fails, `docker compose restart` and look again.
 
 ---
 
 ## 4. SurfCore
 
 ```bash
-cd ~/yourDaughter/surfcore
+cd ~/dsh-sixCoreAIModel/surfcore
 npm install
 cp config.example.json config.json
 ```
 
-编辑 `config.json`，填 `ownerQQ`、`allow.private`、`allow.groups`、`snowluma.accessToken`。
+Edit `config.json`: `ownerQQ`, `allow.private`, `allow.groups`, `snowluma.accessToken`.
 
-> macOS 上文件路径别带空格和中文，否则某些脚本会挂。`~/yourDaughter` 就很好。
+> Keep the path free of spaces and non-ASCII characters — some scripts pass it to shell
+> commands without quoting. `~/dsh-sixCoreAIModel` is a good choice.
 
 ---
 
-## 5. 建角色并装进 DSH
+## 5. Character and DSH install
 
 ```bash
-node scripts/init-character.mjs --name 女儿 --owner <你的QQ号>
+node scripts/init-character.mjs --name Daughter --owner <your-qq>
 node scripts/setup-dsh.mjs
 ```
 
-然后**重启 DSH**（⌘Q 退出再打开），进 `设置 → SurfCore → 诊断 → 一键安装`。
+Then **restart DSH** (⌘Q, reopen) and go to `Settings → SurfCore → Diagnose → Install all`.
 
 ---
 
-## 6. 启动桥接
+## 6. Start the bridge
 
 ```bash
-cd ~/yourDaughter/surfcore
+cd ~/dsh-sixCoreAIModel/surfcore
 npm start
 ```
 
-如果想让它在后台常驻，用仓库自带的守护脚本（它自己会找 DSH 的端口）：
+To keep it running in the background — the supervisor script discovers the DSH port by itself:
 
 ```bash
 nohup ./scripts/bridge-supervisor.sh >/dev/null 2>&1 &
 ```
 
-想开机自启，把它交给 launchd：新建 `~/Library/LaunchAgents/com.yourname.surfcore.plist`，
-`ProgramArguments` 指向 `bridge-supervisor.sh`，`RunAtLoad` 设 true，然后
-`launchctl load ~/Library/LaunchAgents/com.yourname.surfcore.plist`。
-
----
-
-## 7. macOS 特有的三个坑
-
-**① DSH 每次重启都换端口**
-桥接会拿着旧端口静默失联，表现是「QQ 有消息、她不说话」。
-用 `scripts/bridge-supervisor.sh`（会自动发现端口），或手动重启桥接。
-
-**② 别用 `restart-dsh.sh` 之外的方式硬杀 DSH**
-`killall` 会让 DSH 的会话状态不干净；用 `osascript` 退 App 的方式在脚本里已经写好了。
-
-**③ 麦克风权限（只有做语音时需要）**
-浏览器录音要求 https 或 localhost；系统会弹一次麦克风授权，点允许。
-本项目默认不含语音，见 `docs/OPTIONAL.md`。
-
----
-
-## 8. 验收
+To start at login, let launchd run it: create `~/Library/LaunchAgents/com.yourname.surfcore.plist`
+with `ProgramArguments` pointing at `bridge-supervisor.sh` and `RunAtLoad` set to true, then:
 
 ```bash
-curl -s -H "x-console-token: $(cat ~/yourDaughter/surfcore/state/console-token)" \
+launchctl load ~/Library/LaunchAgents/com.yourname.surfcore.plist
+```
+
+---
+
+## 7. Three macOS-specific pitfalls
+
+**① DSH changes port on every restart.**
+The bridge keeps the old port and goes quiet — the symptom is "QQ has messages, she says nothing".
+Use `scripts/bridge-supervisor.sh` (it rediscovers the port) or restart the bridge manually.
+
+**② Don't `killall` DSH.**
+Use `osascript -e 'quit app "DeepSeek Harness"'` (that is what `scripts/restart-dsh.sh` does);
+hard-killing leaves the session state dirty.
+
+**③ Microphone permission (only if you add voice).**
+Browser recording requires https or localhost, and macOS will ask for microphone access once.
+Voice is not included by default — see [OPTIONAL.md](OPTIONAL.md).
+
+---
+
+## 8. Verify
+
+```bash
+curl -s -H "x-console-token: $(cat ~/dsh-sixCoreAIModel/surfcore/state/console-token)" \
      http://127.0.0.1:3100/api/status
 ```
 
-返回 `"ok":true`，然后浏览器打开 `http://127.0.0.1:3100/?token=<token>` 看控制台。
-剩下的验收项见 `INSTALL.md` 第 8 节。
+`"ok":true`, then open `http://127.0.0.1:3100/?token=<token>` and walk the checklist in
+[INSTALL.md](../INSTALL.md#8-acceptance-checklist).

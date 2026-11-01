@@ -1,102 +1,99 @@
-# 可选能力：这个包里没有，但你可以自己加
+# Optional capabilities (not bundled — here is how to add them)
 
-发布包刻意**不带**下面这些：它们要么有版权/许可问题，要么需要额外的模型和显卡，
-要么是某个人自己的东西。这里说明每一件怎么补。
+These are deliberately excluded: either the licensing is a problem, or they need extra models and a GPU,
+or they are simply one person's private setup.
 
 ---
 
-## 1. 语音（说话）
+## 1. Voice
 
-**包里没有**：任何语音包、训练好的音色、GPT-SoVITS 模型、音频样本。
+**Not included**: any voice pack, any trained timbre, GPT-SoVITS models, reference audio.
 
-**为什么**：克隆音色涉及他人声音的版权与人格权，不能随开源包分发；
-模型本体也有各自的许可证（GPT-SoVITS 是 MIT，但你喂进去的参考音频不是）。
+**Why**: cloning a voice involves the rights of the person behind it, and the models have their own licenses
+(GPT-SoVITS is MIT, but the audio you feed it is not).
 
-**你自己怎么加**（三种，从易到难）：
+**How to add** (easy → hard):
 
-| 方案 | 做什么 | 成本 |
+| Option | What to do | Cost |
 | --- | --- | --- |
-| A. 系统 TTS | 用 macOS `say` / Windows SAPI 直接合成 | 零成本，音色一般 |
-| B. 开源 TTS | 部署 [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) 或 piper，用**你自己的**声音或授权素材 | 半天 + 一块显卡（CPU 也能跑，慢） |
-| C. 云端 TTS | 接 OpenAI / Azure / 阿里云的语音合成 API | 按量付费，最省事 |
+| A. System TTS | macOS `say` / Windows SAPI | free, generic voice |
+| B. Open-source TTS | run [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) or piper with **your own** or licensed audio | half a day + a GPU (CPU works, slow) |
+| C. Cloud TTS | OpenAI / Azure / AliCloud speech APIs | pay per character, easiest |
 
-接进 SurfCore 的位置：`config.json → socialV2.voice`（`enabled`、`dir`、时长/频率限制），
-合成服务地址在 `socialV2.voice.tts`。桥接调用的是 OpenAI 兼容的 `/v1/audio/speech` 形态，
-所以任何兼容服务都能接。
+Wire it in at `config.json → socialV2.voice` (`enabled`, `dir`, duration/rate limits); the endpoint lives in
+`socialV2.voice.tts`. The bridge calls an OpenAI-compatible `/v1/audio/speech`, so any compatible service works.
 
-> **别做的事**：不要把别人的声音（尤其声优、主播、vtuber）拿去克隆后公开分发。
-> 自己私下玩是另一回事，公开发布一定出事。
+> **Do not** clone a voice actor's, streamer's or VTuber's voice and publish it. Private experimentation is one
+> thing; public distribution definitely gets you in trouble.
 
 ---
 
-## 2. 画图
+## 2. Image generation
 
-**包里没有**：ComfyUI、SDXL/任何 checkpoint、生成的工作流。
+**Not included**: ComfyUI, any SDXL checkpoint, any workflow.
 
-**为什么**：模型动辄几个 GB，且各有许可证（SDXL 是 CreativeML OpenRAIL++-M，
-商用有条件）；塞进代码仓库既不合规也不现实。
+**Why**: models are several GB and each has its own license (SDXL is CreativeML OpenRAIL++-M, with conditions
+on commercial use). Shipping them in a code repo is neither compliant nor practical.
 
-**你自己怎么加**：
+**How to add**:
 
-1. 装 [ComfyUI](https://github.com/comfyanonymous/ComfyUI)，下一个人像/二次元 checkpoint；
-2. 启动它（默认 `http://127.0.0.1:8188`）；
-3. 在 `config.json` 里：
+1. install [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and a portrait/anime checkpoint;
+2. start it (default `http://127.0.0.1:8188`);
+3. in `config.json`:
 
 ```jsonc
 "socialV2": {
   "draw": {
     "enabled": true,
     "comfyUrl": "http://127.0.0.1:8188",
-    "checkpoint": "你的模型文件名.safetensors",
+    "checkpoint": "your-model.safetensors",
     "dailyLimit": 3,
     "size": "832x832"
   }
 }
 ```
 
-4. 重启桥接。她用 `qq_draw_image` 出图，画完会直接发到会话里。
+4. restart the bridge. She uses `qq_draw_image`; the image is sent into the conversation.
 
-**没有显卡怎么办**：把 `draw.enabled` 设 `false`。她不会因为没有画图能力而变笨，
-只是被要求画图时会说「画不了」。
-
----
-
-## 3. 3D 房间
-
-**包里没有**：Three.js 房间、MMD 模型、桌宠外壳。
-
-**为什么**：模型（`.pmx`）有明确的使用规约（多数只允许 MMD 视频用途），不能随包分发；
-房间本身也需要单独调。
-
-**想要的话**：自己用 Three.js 或 Unity 搭一个只读 `state/` 的查看器即可。
-`state/mood.json`、`state/drive.json`、`state/tool-calls.jsonl` 就是全部数据源；
-房间里的每个家具对应一类工具调用（按 `tool-calls.jsonl` 统计出来的分布排）。
+**No GPU?** Set `draw.enabled` to `false`. She is not "dumber" without it — she just says she cannot draw.
 
 ---
 
-## 4. B 站
+## 3. 3-D room
 
-**包里没有**：B站 cookie、账号、任何登录态。
+**Not included**: the Three.js room, the MMD model, the desktop-pet shell.
 
-**为什么**：那是你的账号。
+**Why**: `.pmx` models carry explicit usage terms (most allow MMD videos only) and cannot be redistributed.
 
-**怎么加**：`config.json → biliBridge`，填 `self.mid` 与 cookie；
-只读功能（看视频、看热榜、看评论）不需要登录也能用一部分。
-写操作（点赞/评论/动态）默认关闭，要用自己在配置里开，并且有身份护栏拦着不发敏感信息。
-
----
-
-## 5. 桌面宠物（Electron 外壳）
-
-**包里没有**。它和 3D 房间是同一类东西：一个渲染 `state/` 的窗口。
-想做得自己写一个 Electron/原生壳，读 `state/` 与桥接的 `/api/status` 即可。
+**If you want one**: build a viewer that reads `state/` — that is the whole data source.
+`state/mood.json`, `state/drive.json` and `state/tool-calls.jsonl` are enough; map furniture to tool
+categories using the call distribution in `tool-calls.jsonl`.
 
 ---
 
-## 6. 语音对话（麦克风 → ASR → 她 → TTS）
+## 4. Bilibili
 
-**包里没有**。链路是：浏览器录音 → 本地 whisper（或云端 ASR）→ 独立会话 → TTS →
-浏览器播放，实测一句约 6–7 秒。
+**Not included**: cookies, accounts, any login state.
 
-要做的话：一个静态页面 + 一个 `/v1/audio/transcriptions` 兼容的 ASR 服务 + 上面第 1 条的 TTS。
-别做成半双工以外的形态——她说话时麦克风必须静音，否则会把自己的声音当输入。
+**Why**: that is your account.
+
+**How to add**: `config.json → biliBridge`, fill `self.mid` and the cookie. Read-only features
+(watching, trending, comments) work partially without login. Write actions (like/comment/post) are off by default;
+enable them yourself if you want, and note the identity guard will still block sensitive content.
+
+---
+
+## 5. Desktop pet (Electron shell)
+
+**Not included**. Same category as the 3-D room: a window that renders `state/`.
+Write an Electron/native shell that reads `state/` and the bridge's `/api/status`.
+
+---
+
+## 6. Voice conversation (mic → ASR → her → TTS)
+
+**Not included**. The chain is: browser recording → local whisper (or cloud ASR) → separate session → TTS →
+browser playback; measured end-to-end at roughly 6–7 seconds per short turn.
+
+To build it: a static page + an `/v1/audio/transcriptions`-compatible ASR service + the TTS from section 1.
+Keep it half-duplex — the microphone must be muted while she speaks, or she will hear herself.

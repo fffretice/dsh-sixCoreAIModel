@@ -1,118 +1,150 @@
-# Windows 部署
+# Windows installation
 
-Windows 是最省事的平台：DSH 和 SnowLuma 都有原生包，不需要 Docker。
+Windows is the easy platform: DSH and SnowLuma both ship native builds, no Docker involved.
+This guide takes a clean Windows 10/11 x64 machine to "she replies in the group".
 
-> 下面的命令在 **PowerShell**（不是 cmd）里执行。建议用 Windows 10/11 x64。
+> Run everything in **PowerShell** (not cmd). Total time ≈ 20 minutes, 10 of which are downloads.
 
 ---
 
 ## 1. Node.js
 
-去 [nodejs.org](https://nodejs.org) 下 **LTS** 的 Windows 安装包（`.msi`），一路下一步。
-装完**新开一个** PowerShell：
+Download the **LTS** Windows installer (`.msi`) from [nodejs.org](https://nodejs.org) and click through it.
+Then open a **new** PowerShell window (environment variables are only picked up by new shells):
 
 ```powershell
-node -v      # 需要 >= v22.13
+node -v      # must be >= v22.13
 npm -v
 ```
 
-> 如果 `node` 命令找不到：关掉所有 PowerShell 窗口重开，或重启一次。
+> If `node` is "not recognized": close every PowerShell window and reopen one, or reboot.
+> Do not use the Node that ships with some IDEs — it is usually older.
 
 ---
 
 ## 2. DeepSeek Harness
 
-装 Windows 版 DSH，先启动一次，让它把 `%USERPROFILE%\.dsh` 建出来。
+Install the Windows build of DSH and launch it once, so it creates `%USERPROFILE%\.dsh`.
+
+Check it exists:
+
+```powershell
+Test-Path "$env:USERPROFILE\.dsh"
+```
 
 ---
 
 ## 3. SnowLuma
 
-1. 到 [SnowLuma Releases](https://github.com/SnowLuma/SnowLuma/releases/latest) 下 **win-x64** 包；
-2. 解压到一个**没有中文和空格**的路径，例如 `D:\SnowLuma`；
-3. 双击启动，等它把界面拉起来；
-4. 在界面里输入 QQ 号 → 出二维码 → 手机 QQ 扫码登录。
+1. Download the **win-x64** archive from [SnowLuma Releases](https://github.com/SnowLuma/SnowLuma/releases/latest).
+2. Extract it to a path **without spaces or Chinese characters**, e.g. `D:\SnowLuma`.
+3. Run it. The first launch may take a while (it initialises an embedded client).
+4. In its window: enter the QQ number → a QR code appears → scan it with mobile QQ → confirm.
 
-登录后确认网关在跑：
+Then verify the OneBot gateway:
 
 ```powershell
 curl.exe -H "Authorization: Bearer <token>" http://127.0.0.1:3000/get_login_info
 ```
 
-> Windows 自带的是 `curl.exe`，在 PowerShell 里写 `curl` 可能会被别名成 `Invoke-WebRequest`，
-> 所以显式写 `curl.exe`。
+> Use `curl.exe`, not `curl` — in PowerShell `curl` is an alias for `Invoke-WebRequest`,
+> which ignores `-H` in a different way and will confuse you.
 
-如果 SnowLuma 的默认端口不是 3000/3001，去它的设置里改成这两个，或者改 `config.json`
-里的 `snowluma.httpUrl` / `wsUrl` 去适配它。
+If the response contains your QQ number, the gateway is up. If SnowLuma uses different ports,
+either change them in SnowLuma's settings to 3000/3001, or point `snowluma.httpUrl` / `snowluma.wsUrl`
+in `config.json` at whatever it does use.
 
 ---
 
 ## 4. SurfCore
 
 ```powershell
-cd D:\yourDaughter\surfcore
+cd D:\dsh-sixCoreAIModel\surfcore
 npm install
 copy config.example.json config.json
 ```
 
-用记事本 / VS Code 打开 `config.json`，改这四个字段：
+Open `config.json` in Notepad or VS Code and set:
 
 ```jsonc
 "ownerQQ": 123456789,
 "allow": { "private": [123456789], "groups": [987654321] },
-"snowluma": { "accessToken": "第 3 步的 token" }
+"snowluma": { "accessToken": "the token from step 3" }
 ```
 
-> **路径要求**：别放在 `C:\Program Files`、别放桌面（中文用户名会变成 `C:\Users\张三\Desktop`），
-> 放在 `D:\yourDaughter` 这种纯英文短路径最稳。
+**Path rules**: do not put this under `C:\Program Files`, and do not put it on the Desktop if your
+Windows account name is non-ASCII (`C:\Users\张三\Desktop`). `D:\dsh-sixCoreAIModel` is a good choice.
 
 ---
 
-## 5. 建角色、装进 DSH
+## 5. Create a character and install into DSH
 
 ```powershell
-node scripts/init-character.mjs --name 女儿 --owner 123456789
+node scripts/init-character.mjs --name Daughter --owner 123456789
 node scripts/setup-dsh.mjs
 ```
 
-然后**重启 DSH**（托盘退出，再打开），进 `设置 → SurfCore → 诊断 → 一键安装`。
+Then **restart DSH** (quit from the tray, then relaunch) and open `Settings → SurfCore → Diagnose → Install all`.
+
+If SurfCore does not show up in Settings:
+1. Did `setup-dsh.mjs` print any error?
+2. Did you restart DSH after it?
+3. Press F5 in the settings window.
 
 ---
 
-## 6. 启动
+## 6. Start the bridge
 
 ```powershell
 npm start
 ```
 
-看到 `[bridge] SnowLuma 已连接` 就成了。想后台常驻：
+You should see `[bridge] SnowLuma connected`. To keep it running:
 
-- 简单做法：把 `npm start` 的窗口最小化，别关；
-- 稳一点：用「任务计划程序」建一个「登录时启动」的任务，程序填 `node.exe`，
-  参数填 `D:\yourDaughter\surfcore\src\bridge.js`，起始位置填 `D:\yourDaughter\surfcore`。
+- **Simple**: leave the PowerShell window minimised.
+- **Proper**: create a Task Scheduler job:
+  - Trigger: *At log on*
+  - Action: start `node.exe`
+  - Arguments: `D:\dsh-sixCoreAIModel\surfcore\src\bridge.js`
+  - Start in: `D:\dsh-sixCoreAIModel\surfcore`
 
-> 仓库里的 `scripts/*.sh` 是给 macOS/Linux 的，Windows 上用不到；
-> Windows 侧的守护逻辑由 DSH 插件负责（`autoStartBridge`）。
+> The `scripts/*.sh` helpers are macOS/Linux only. On Windows the DSH plugin's `autoStartBridge`
+> handles restarts; the shell scripts are not needed.
 
 ---
 
-## 7. Windows 特有的坑
+## 7. Windows-specific pitfalls
 
-| 现象 | 原因 | 处理 |
+| Symptom | Cause | Fix |
 | --- | --- | --- |
-| `npm install` 卡在编译 | 缺构建工具 | 先 `npm install --ignore-scripts`，再单独装需要的包；本项目一般不需要编译原生模块 |
-| 路径里带中文，桥接报 `ENOENT` | 中文路径 + 某些 Node API | 换纯英文路径 |
-| 控制台中文乱码 | PowerShell 编码 | `chcp 65001` 再跑，或改用 Windows Terminal |
-| 防火墙弹窗 | 桥接监听 3100 | 只允许「专用网络」即可，别开到公网 |
-| 端口 3000 被占 | 别的服务占了 OneBot 端口 | `netstat -ano | findstr :3000` 找到进程，改 SnowLuma 或本项目的端口 |
+| `npm install` hangs on a native build | missing build tools | `npm install --ignore-scripts`, then install only what you need; this project normally needs no compilation |
+| `ENOENT` with a path containing Chinese characters | non-ASCII path + some Node APIs | move the folder to an ASCII path |
+| Garbled Chinese in the console | PowerShell code page | `chcp 65001` in that window, or use Windows Terminal |
+| Firewall prompt for port 3100 | bridge listening locally | allow **private networks only**, never public |
+| Port 3000 already in use | another service took the OneBot port | `netstat -ano | findstr :3000`, kill it, or change ports on both sides |
+| `curl` behaves strangely | alias to `Invoke-WebRequest` | always write `curl.exe` |
+| DSH restarts and she stops replying | bridge is still connected to the old DSH port | restart the bridge; the plugin normally handles this |
+| Antivirus quarantines the bridge | heuristic on a Node process writing many files | add the project folder as an exclusion |
 
 ---
 
-## 8. 验收
+## 8. Verify
 
 ```powershell
-curl.exe -H "x-console-token: $((Get-Content .\state\console-token))" http://127.0.0.1:3100/api/status
+curl.exe -H "x-console-token: $(Get-Content .\state\console-token)" http://127.0.0.1:3100/api/status
 ```
 
-返回 `"ok":true` 就说明桥接活着。浏览器打开 `http://127.0.0.1:3100/?token=<token>` 看控制台，
-然后按 `INSTALL.md` 第 8 节逐项验收。
+`"ok":true` means the bridge is alive. Open `http://127.0.0.1:3100/?token=<token>` in a browser,
+then walk through the checklist in [INSTALL.md](../INSTALL.md#8-acceptance-checklist).
+
+---
+
+## 9. Updating and uninstalling
+
+**Update**: keep `config.json`, `roles\`, `state\`, `characters\`; replace the rest; run `npm install`.
+
+**Uninstall**:
+```powershell
+node scripts/uninstall.mjs
+```
+Then delete the folder. `state\` and `roles\` hold her memory and character — copy them out first if you care.
