@@ -14,6 +14,13 @@ Current release: **1.1.0**.
 
 ## What's new in 1.1
 
+- **Rules finally reach the model.** Root cause fix: the rules file (5,972 chars) was only ever
+  read by the console — the inject path used a hard-sliced character card, so every rule change
+  since day one was invisible to her. The whole file is injected now, the 6,000-char truncation is
+  gone, and the console lists every rule with its last-used time.
+- **Learning, two tiers.** Prohibition sentences from group members, positive phrasing from the
+  owner; full-sentence topics instead of fragments; group learning goes to a candidate pool she
+  decides on at diary time, instead of waiting for a repetition that never comes.
 - **Prompt-injection shield** — inbound group text is scanned for "ignore your instructions",
   impersonation of the owner, and attempts to read or rewrite memory; hits are neutralised
   before they reach the model (`src/prompt-shield.js`).
