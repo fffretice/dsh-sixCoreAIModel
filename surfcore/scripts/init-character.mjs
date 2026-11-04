@@ -77,5 +77,5 @@ console.log(`  规则：${path.relative(ROOT, rulesFile)}`);
 console.log(`  当前角色已切换为：${name}`);
 console.log('');
 console.log('下一步：打开人格卡，把「【填写】」换成你自己的设定。');
-console.log('写之前建议先看一眼 docs/CHARACTER.md —— 那一节决定她像不像人。');
+console.log('写之前建议先看一眼 ../docs/CHARACTER.md —— 那一节决定她像不像人。');
 if (!owner) console.log('提示：没给 --owner，卡里的 {{OWNER_QQ}} 还是占位符，记得自己填。');

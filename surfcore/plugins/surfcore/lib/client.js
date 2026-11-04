@@ -448,7 +448,7 @@ window.__ModuleLoader__.load({
           h("label", { className: "qbw-admin-field" },
             h("span", null, "管理员 QQ"),
             h("input", {
-              className: "qbw-input", inputMode: "numeric", placeholder: "例如 123456789",
+              className: "qbw-input", inputMode: "numeric", placeholder: "例如 3287064288",
               value: value.qq ?? "",
               onChange: (e) => set("qq", digits(e.target.value)),
             }),
@@ -1065,7 +1065,7 @@ F("sessionCwd", "会话工作目录", "留空用 surfcore 根目录", "text", { 
         F("fishGuard.failCooldownMinutes", "风控失败冷却（分钟）", "默认 60；遇到 -509/12015 等码自动停手", "number", { min: 1 }),
       ]},
       { group: "B站 会话权限", note: "只影响她自己的 DSH 会话（bili-whale-*），不影响 QQ 桥接；改完下一次 tick 生效", fields: [
-        F("agent.sandbox", "会话权限", "danger-full-access = 定时醒来能跑 bili.mjs（推荐；C:\\Users\\you 用 workspace-write 会因 WRITE_OWNER 起不了命令）；workspace-write = 更安全但可能什么都跑不了", "select", {
+        F("agent.sandbox", "会话权限", "danger-full-access = 定时醒来能跑 bili.mjs（推荐；Windows 用户名含特殊字符时用 workspace-write 会因 WRITE_OWNER 起不了命令）；workspace-write = 更安全但可能什么都跑不了", "select", {
           options: [["danger-full-access", "完全访问（推荐，能跑工具）"], ["workspace-write", "仅工作区（更安全，可能跑不了命令）"]],
         }),
       ]},
@@ -1643,7 +1643,7 @@ F("toolsPath", "bili.mjs 路径", "留空 = 用合体插件自带的 tools/", "t
           minutesRow("失败后多久重试（分钟）", "retryMs", 15, "投递失败 / 回合报错", { min: 1, max: 360 }),
           numberRow("最多重试几次", "maxAttempts", 3, "连续失败后回到正常间隔", { min: 1, max: 10 }),
           numberRow("提示词硬上限（字符）", "promptMaxChars", 16000, "超出会截中间、保留头尾指令", { min: 4000, max: 30000, step: 1000 }),
-          textRow("找哪个 QQ（留空 = ownerQQ）", "ownerUin", "", "必须同时在 allow.private，且与机器人互为好友", "123456789")),
+          textRow("找哪个 QQ（留空 = ownerQQ）", "ownerUin", "", "必须同时在 allow.private，且与招牌词互为好友", "3287064288")),
 
         h("div", { className: "qbw-actions", style: { borderTop: "none", marginTop: "8px", paddingTop: "0", flexWrap: "wrap" } },
           h(Btn, { kind: "qbw-btn2", onClick: doPreview, disabled: !!busy }, busy === "purpose-preview" ? "生成中…" : "预览这一轮（不发）"),
@@ -3140,7 +3140,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
           h("li", null, h("a", { href: "/dsh-surfcore/api/voice/packs/sample?id=voice-cloud", target: "_blank", rel: "noreferrer" }, "下载参考音频"), "（19 秒，包里自带，不用自己录）"),
           h("li", null, h("a", { href: "https://console.volcengine.com/speech/service/8", target: "_blank", rel: "noreferrer" }, "打开火山引擎控制台 ↗"), " → 语音技术 → 声音复刻 → 上传 wav → 训练，拿到 S_xxxxxxxx"),
           h("li", null, "把下面三项填进来，点「保存」，再点「测试连接」")),
-        row("AppID", h("input", { type: "text", value: form.appId, placeholder: "例如 1234567890", onChange: (e) => setForm({ ...form, appId: e.target.value }), style: { width: "240px" } })),
+        row("AppID", h("input", { type: "text", value: form.appId, placeholder: "例如 3773727341", onChange: (e) => setForm({ ...form, appId: e.target.value }), style: { width: "240px" } })),
         row("Access Key", h("input", { type: "password", value: form.accessKey, placeholder: cfg && cfg.hasAccessKey ? "已保存：" + cfg.accessKeyMasked + "（留空则不修改）" : "控制台里的 Access Key", onChange: (e) => setForm({ ...form, accessKey: e.target.value }), style: { width: "240px" } })),
         row("音色 ID", h("input", { type: "text", value: form.speaker, placeholder: "S_xxxxxxxx", onChange: (e) => setForm({ ...form, speaker: e.target.value }), style: { width: "240px" } })),
         h("div", { style: { display: "flex", gap: "8px", marginTop: "10px", alignItems: "center", flexWrap: "wrap" } },
@@ -4000,7 +4000,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
         showCreate ? h("div", { className: "qbw-card", style: { marginTop: "10px" } },
           h("h4", null, "新建角色"),
           h("div", { className: "qbw-hint" }, "可以只填名字（空人格卡/空记忆卡），也可以把你自己预设的人格卡、记忆卡 JSON 一起导入。"),
-          h("div", { className: "qbw-row" }, h("span", { className: "qbw-label" }, "角色名"), h("input", { className: "qbw-input", value: name, placeholder: "例如 小咪", onChange: (e) => setName(e.target.value) })),
+          h("div", { className: "qbw-row" }, h("span", { className: "qbw-label" }, "角色名"), h("input", { className: "qbw-input", value: name, placeholder: "例如 角色", onChange: (e) => setName(e.target.value) })),
           h("div", { className: "qbw-hint", style: { marginTop: "8px" } }, "人格卡（Markdown）"),
           h("input", { type: "file", accept: ".md,.txt,text/markdown,text/plain", onChange: async (e) => {
             const file = e.target.files && e.target.files[0];
@@ -4433,7 +4433,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
             !st || !st.installed ? h("span", { style: { fontSize: "12px", opacity: 0.7 } }, form.source.trim() ? "" : "← 先在下方「安装设置」填安装包地址，按钮才可点") : null,
             err ? h("div", { className: "qbw-err", style: { width: "100%", marginTop: "6px" } }, err) : null,
             err ? h("div", { style: { display: "flex", gap: "8px", marginTop: "6px", flexWrap: "wrap" } },
-              h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/Mieksido/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
+              h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
               h(Btn, { kind: "qbw-btn2", onClick: async () => {
                 setBusy("clean"); setErr("");
                 try {
@@ -4460,9 +4460,9 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
             h(Browse, { mode: "dir", title: "选择桌宠安装目录", onPick: (v) => setForm((f) => ({ ...f, appDir: v })) })),
           h("div", { className: "qbw-hint", style: { marginTop: "4px" } }, "沙箱 / 只读用户目录的环境里，把安装目录指到可写位置（例如工作区内）。"),
           h("div", { className: "qbw-hint", style: { marginTop: "6px" } },
-            `官方最新包：${st?.defaults?.zipUrl || "https://github.com/Mieksido/surfpet/releases/latest/download/pet-pack.zip"}`),
+            `官方最新包：${st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip"}`),
           h("div", { className: "qbw-actions" },
-            h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/Mieksido/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
+            h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
             h(Btn, { kind: "qbw-btn2", disabled: busy === "electron-detect", onClick: () => act("electron-detect") }, busy === "electron-detect" ? "检测中…" : "检测 Electron"),
             h(Btn, { kind: "qbw-btn2", disabled: busy === "electron-install", onClick: () => act("electron-install", { source: "auto" }) },
               busy === "electron-install" ? "下载中…（约 125MB，2~5 分钟）" : `下载 Electron ${st?.defaults?.electronVersion || "45.0.0"}`),

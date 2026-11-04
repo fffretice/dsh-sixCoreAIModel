@@ -316,6 +316,7 @@ function stickerSignature(entry) {
     entry?.desc,
     entry?.localNote,
     entry?.usage,
+    entry?.herNote,          // 2026-11-03：她自己写的「这张图表达什么」
     entry?.keywords?.join(','),
     entry?.tags?.join(',')
   ].filter(Boolean).join('|');
@@ -350,6 +351,7 @@ export function stickerSearchText(entry) {
     entry.content,
     entry.desc,
     entry.localNote,
+    entry.herNote,
     entry.usage,
     label,
     ...altLabels,
@@ -492,9 +494,18 @@ export function rankStickers(entries, context, opts = {}) {
   const queryVec = encodeText(`${text} ${hits.map((h) => h.label).join(' ')}`);
   const lowered = text.toLowerCase();
 
+  // 2026-11-02：#32 那种「标注写着禁止再发」的条目还会被推荐出来——语义打分只看文字，
+  // 不看标签。凡是 tags 带「禁用/误标」、或 content 里明写「禁止再发/标注和图片对不上」的，
+  // 一律不进推荐。
+  const isBanned = (e) => {
+    const tags = Array.isArray(e.tags) ? e.tags.map((t) => String(t)) : [];
+    if (tags.some((t) => /禁用|误标/.test(t))) return true;
+    return /禁止再发|标注和图片对不上/.test(`${e.content || ''} ${e.localNote || ''} ${e.usage || ''}`);
+  };
   const ranked = [];
   for (const entry of list) {
     if (exclude.has(entry.id)) continue;
+    if (isBanned(entry)) continue;
     const vec = stickerVector(entry);
     // 余弦范围大致 [-0.2, 0.9]；线性拉伸到 0~1，负相关按 0 处理
     const contentScore = clamp01((dot(queryVec, vec) - 0.02) / 0.5);

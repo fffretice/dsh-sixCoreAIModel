@@ -212,7 +212,7 @@ test('提示词：素材/候选/发送工具/备忘格式/隐私与索取边界'
   ];
   const prompt = buildPurposePrompt({
     now, config: c, mode: 'reserved2', ownerUin: owner, ownerName: '主人', token: 'tok-123',
-    contextBlocks: ['【当前角色】小咪'], materials, candidates,
+    contextBlocks: ['【当前角色】角色'], materials, candidates,
     selected: candidates[0], pending: [{ text: '周末想出去玩', kind: 'share' }], history: [], stats: {},
   });
   assert.ok(prompt.includes('【主动找主人 · 目的回合】'));
@@ -486,7 +486,7 @@ test('摘要带驱动 / 最近情绪 / 备忘里的需求', () => {
 test('人格卡 → 动机先验：载入人格+记忆卡就能形成起始目标（没有新事件也行）', () => {
   const now = local(14, 0);
   const c = normalizePurposeConfig({});
-  const personaText = '小咪是个黏人的孩子，爱玩游戏，好奇心强，喜欢折腾插件，也爱跟主人分享看到的东西。';
+  const personaText = '角色是个黏人的孩子，爱玩游戏，好奇心强，喜欢折腾插件，也爱跟主人分享看到的东西。';
   const persona = analyzePersona(personaText);
   assert.ok(persona.traits.length >= 3);
   assert.ok(persona.bias.connect > 0);
@@ -528,7 +528,7 @@ test('人格卡 → 动机先验：载入人格+记忆卡就能形成起始目�
     importance: 90, emotional: 8, pinned: true, anchor: true,
     createdAt: now - 400 * 86400000, lastSeenAt: now - 400 * 86400000,
   };
-  const packet = collectMaterials({ now, config: c, ownerUin: '123', roleName: '小咪', conversations: [], biliEntries: [], memoryRecords: [oldPinned] });
+  const packet = collectMaterials({ now, config: c, ownerUin: '123', roleName: '角色', conversations: [], biliEntries: [], memoryRecords: [oldPinned] });
   assert.ok(packet.items.some((m) => m.kind === 'memory' && m.text.includes('一起看')));
 });
 

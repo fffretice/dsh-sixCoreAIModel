@@ -117,6 +117,26 @@ export function characterDir(id) {
   return path.join(CHARACTERS_DIR, id);
 }
 
+const personaNameCache = new Map();
+/** 读 manifest 里声明的 persona 文件名（默认 persona.md）；带缓存，避免每次取路径都读文件。 */
+function personaNameOf(dir) {
+  const hit = personaNameCache.get(dir);
+  if (hit) return hit;
+  let name = 'persona.md';
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(dir, 'character.json'), 'utf8'));
+    if (m && typeof m.persona === 'string' && m.persona && !m.persona.includes('..') && !m.persona.includes('/')) {
+      name = m.persona;
+    }
+  } catch {}
+  personaNameCache.set(dir, name);
+  return name;
+}
+export function invalidatePersonaName(dir = '') {
+  if (dir) personaNameCache.delete(dir);
+  else personaNameCache.clear();
+}
+
 export function characterPaths(id) {
   const dir = characterDir(id);
   const memoryDir = path.join(dir, 'memory');
@@ -124,7 +144,7 @@ export function characterPaths(id) {
     id,
     dir,
     manifest: path.join(dir, 'character.json'),
-    persona: path.join(dir, 'persona.md'),
+    persona: path.join(dir, personaNameOf(dir)),
     memoryDir,
     memoryJson: path.join(memoryDir, 'memory-card.json'),
     memoryMd: path.join(memoryDir, 'memory-card.md'),
@@ -326,7 +346,7 @@ function defaultPersona(name) {
   return `# 角色卡：${name}\n\n（在这里写这个人格卡：你是谁、说话方式、对谁温柔、边界。）\n`;
 }
 
-/** 从人格卡标题里取角色名（`# 角色卡：小咪` / `# 小咪`）；取不到就用角色名。 */
+/** 从人格卡标题里取角色名（`# 角色卡：角色` / `# 角色`）；取不到就用角色名。 */
 export function personaNameFromText(text, fallback = '') {
   const heading = /^#\s*(?:角色卡[：:]\s*)?(.+)$/m.exec(String(text ?? ''))?.[1]?.trim();
   return (heading || fallback || '').replace(/[#*`]/g, '').trim().slice(0, 40);

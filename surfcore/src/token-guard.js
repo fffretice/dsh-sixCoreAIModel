@@ -38,8 +38,8 @@ export function evaluateWakeBudget({ key = '', wakeTimes = [], now = Date.now(),
   if (g.enabled === false) return { blocked: false };
   const times = (Array.isArray(wakeTimes) ? wakeTimes : []).map(Number).filter((t) => Number.isFinite(t) && t > 0);
   const isPrivate = String(key ?? '').startsWith('private:');
-  // 单群额度覆盖（2026-10-29 主人定）：groupWakesPerDay: {"{{GROUP_B}}": 25}
-  // 群总池 100 = 我的群 75 + kuri 的群 25；私聊单独 100。
+  // 单群额度覆盖（2026-10-29 主人定）：groupWakesPerDay: {"1000000003": 25}
+  // 例：群总池 100 = 群 A 75 + 群 B 25；私聊单独 100。
   const groupOverrides = g.groupWakesPerDay && typeof g.groupWakesPerDay === 'object' ? g.groupWakesPerDay : {};
   const groupId = String(key ?? '').startsWith('group:') ? String(key).slice('group:'.length) : '';
   const override = groupId && Object.prototype.hasOwnProperty.call(groupOverrides, groupId)
@@ -60,7 +60,7 @@ export function evaluateWakeBudget({ key = '', wakeTimes = [], now = Date.now(),
       error: `Token 防爆破：这个会话今天已经醒了 ${dayCount}/${maxDay} 次，今天不再唤醒`,
     };
   }
-  // 每小时上限（单群覆盖）：groupHourlyWakes: {"{{GROUP_B}}": 8}
+  // 每小时上限（单群覆盖）：groupHourlyWakes: {"1000000003": 8}
   // 日额度是硬刹车，但热闹的群会在一小时内打满；这个把节奏摊平。
   const hourlyOverrides = g.groupHourlyWakes && typeof g.groupHourlyWakes === 'object' ? g.groupHourlyWakes : {};
   const hourlyCapRaw = groupId && Object.prototype.hasOwnProperty.call(hourlyOverrides, groupId)
@@ -124,4 +124,98 @@ export function evaluateOutbound({ used = 0, count = 1, guard = DEFAULT_TOKEN_GU
     };
   }
   return { blocked: false, next, max };
+}
+
+/**
+ * 每小时把群的剩余额度拉平（2026-10-29 定的机制）。
+ *
+ * 2026-11-03 修了一个会「额度跟着用量涨」的漏洞：原实现是
+ *   caps[g] = Math.max(used[g], used[g] + each)
+ * 池子用完（each=0）时它就等于 used[g]——用掉多少次，上限就变成多少，
+ * 于是越用越能醒（今天 1000000002 从 92 涨到 200）。现在的规则是：
+ *   · 还有剩余额度 → 上限 = max(基准, 已用 + 平均分到的)，保证能继续说话；
+ *   · 池子已经用完 → 上限钉在基准，**不**随已用量膨胀。
+ * 单群上限不超过池子总量（一个群不可能比池子还能用）。
+ *
+ * @param {{groups?:string[], used?:Record<string,number>, baseCaps?:Record<string,number>, pool?:number}} opts
+ * @returns {{caps:Record<string,number>, totalUsed:number, each:number, pool:number}}
+ */
+export function computeQuotaCaps({ groups = [], used = {}, baseCaps = {}, pool = 0 } = {}) {
+  const list = (Array.isArray(groups) ? groups : []).map(String);
+  const totalUsed = list.reduce((s, g) => s + (Number(used[g]) || 0), 0);
+  // 关键：cap 从**基准**算，不从 used 算。
+  // 以前是 used + each，池子用完时 each=0 就退化成 used——这就是「越醒越能醒」的根。
+  // 现在 cap 永远是基准（跨天缩放后的值）；池子还有富余（基准之和 < 池子）才平均加一点。
+  // 已经用超的群，cap 低于 used 是正常的：检查是 dayCount >= cap 就拦，日志会显示 200/92。
+  const sumBase = list.reduce((s, g) => s + (Number(baseCaps[g]) || 0), 0);
+  const left = Math.max(0, Number(pool) - sumBase);
+  const each = Math.floor(left / Math.max(1, list.length));
+  const caps = {};
+  for (const g of list) {
+    const cap = (Number(baseCaps[g]) || 0) + each;
+    caps[g] = pool > 0 ? Math.min(Number(pool), cap) : cap;
+  }
+  return { caps, totalUsed, each, pool: Number(pool) || 0 };
+}
+
+/**
+ * 跨天沿用昨天上限时的收敛：总和超过池子就按比例缩回去。
+ * 不缩的话，一次被抬坏的上限会永久延续（2026-11-03 实际发生过：92→200 之后一天都按 200 算）。
+ * @param {{groups?:string[], prevCaps?:Record<string,number>, defaultCaps?:Record<string,number>, pool?:number}} opts
+ * @returns {Record<string,number>}
+ */
+export function carryQuotaCaps({ groups = [], prevCaps = {}, defaultCaps = {}, pool = 0 } = {}) {
+  const list = (Array.isArray(groups) ? groups : []).map(String);
+  const prevSum = list.reduce((s, g) => s + (Number(prevCaps[g]) || 0), 0);
+  const p = Number(pool) || 0;
+  // 昨天分配合计超过池子，说明那不是「借用」，是异常（比如老的 used 膨胀 bug）。
+  // 这种情况直接回到配置默认值，别把坏数据按比例带进今天。
+  // 2026-11-03 实测：1000000002 被抬到 200 后，按比例缩放会变成 134，仍然偏高。
+  if (p > 0 && prevSum > p) {
+    const reset = {};
+    for (const g of list) reset[g] = Number(defaultCaps[g]) || 0;
+    return reset;
+  }
+  const caps = {};
+  for (const g of list) {
+    const y = Number(prevCaps[g]);
+    caps[g] = Number.isFinite(y) && y > 0 ? Math.round(y) : Number(defaultCaps[g]) || 0;
+  }
+  return caps;
+}
+
+/** 某一刻是否落在「夜间静默」窗口里（支持跨午夜，比如 23→7）。 */
+export function inQuietWindow(now = Date.now(), { start = 1, end = 7 } = {}) {
+  const h = new Date(Number(now)).getHours();
+  const s = Number(start);
+  const e = Number(end);
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return false;
+  return s <= e ? (h >= s && h < e) : (h >= s || h < e);
+}
+
+/**
+ * 夜间静默要不要拦掉这次唤醒（2026-11-03）。
+ *
+ * 只拦「群里非直接叫她」的情况：概率接话、关键词、图片、补唤醒、定时检查……
+ * 这些在深夜醒来基本只有一句「没事，收尾」，但每次都要重读整段会话。
+ * 私聊、日记/叙事、被 @ —— 都放行。
+ *
+ * 注意这不是「禁止她夜里说话」：白天她照样能主动；夜里有人直接叫她，她也照样醒。
+ */
+export function quietHoursBlocks({
+  key = '',
+  reason = '',
+  allow = ['atMention'],
+  now = Date.now(),
+  enabled = true,
+  start = 1,
+  end = 7,
+} = {}) {
+  if (!enabled) return false;
+  if (!String(key).startsWith('group:')) return false;
+  const base = String(reason || '').split(':')[0];
+  // sticker-review 和日记同属「她自己的事」，夜里也该能跑
+  if (base === 'diary' || base === 'narrative' || base === 'sticker-review') return false;
+  if (!inQuietWindow(now, { start, end })) return false;
+  return !allow.includes(base);
 }

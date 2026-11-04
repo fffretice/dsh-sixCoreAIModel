@@ -94,8 +94,33 @@ export function addRule(file, { section = 'owner', text, date = new Date() } = {
   if (existing.some((r) => r.includes(clean) || clean.includes(r))) return false;
   const stamp = `${date.getMonth() + 1}/${date.getDate()}`;
   body = insertAfterMarker(body, section, `- ${clean}（${stamp}）`);
+  body = trimAutoRules(body, section, section === 'owner' ? 18 : 12);
   fs.writeFileSync(file, body);
   return true;
+}
+
+/** 自动区段封顶：只留最新的 N 条，旧的直接丢掉（不进印象，避免越堆越多）。 */
+function trimAutoRules(text, section, max) {
+  const marker = MARKERS[section];
+  const at = text.indexOf(marker);
+  if (at < 0) return text;
+  const head = text.slice(0, at + marker.length);
+  const rest = text.slice(at + marker.length);
+  const lines = rest.split('\n');
+  let kept = 0;
+  const out = [];
+  for (const line of lines) {
+    if (line.trim().startsWith('- ')) {
+      if (kept < max) { out.push(line); kept += 1; }
+      continue;
+    }
+    if (line.includes('<!-- AUTO:') && line !== marker) {
+      out.push(...lines.slice(lines.indexOf(line)));
+      break;
+    }
+    out.push(line);
+  }
+  return head + out.join('\n');
 }
 
 /** 降级：从规则区段移除，进「模糊印象」。 */

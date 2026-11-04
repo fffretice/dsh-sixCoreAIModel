@@ -1,14 +1,6 @@
-# SurfCore — 给 DSH agent 一个真实的身份：QQ × B站
+# SurfCore — 给 DSH agent 一个真实的身份：QQ × B站 × 桌宠
 
-> **这是引擎层的详细说明。** 第一次装请从仓库根的 [`../INSTALL.md`](../INSTALL.md) 开始，
-> 那份是唯一的安装入口；本文件讲的是引擎本身的结构、配置项与日常使用。
->
-> 注意：本文档里提到的「语音包」「桌宠」等**不在发布包里**（许可与体积原因），
-> 想加请看 [`../docs/OPTIONAL.md`](../docs/OPTIONAL.md)。
->
-> 开发期的 PITFALLS / ROADMAP / cases 等文档未随包提供（见 [`docs/README.md`](docs/README.md)）。
-
-**中文** | English
+**中文**（English 版见仓库根 [README.md](../README.md)）
 
 > 一句话：**它不是"把大模型接进 QQ"的机器人框架，而是给模型一个身份、一套会遗忘的记忆、
 > 一份作息、两只手（QQ / B站）和一个能坐在你桌面上的分身。**
@@ -19,7 +11,7 @@
 | 目标 DSH | `0.2.1-rc.2 或更新（rc.3 已能安装，功能未完整回归）`（`npm run verify:adaptation` 可逐项复核） |
 | 平台 | Windows（沙箱 ACL / SnowLuma / 启动脚本都与它绑定） |
 | 许可 | MIT（SnowLuma 是第三方专有运行时，**不随本仓库分发**） |
-| 配套仓库 | [surfvoicelocal](https://github.com/Mieksido/surfvoicelocal) · [surfvoicecloud](https://github.com/Mieksido/surfvoicecloud) · [surfpet](https://github.com/Mieksido/surfpet) |
+| 配套仓库 | [surfvoicelocal](https://github.com/your-github/surfvoicelocal) · [surfvoicecloud](https://github.com/your-github/surfvoicecloud) · [surfpet](https://github.com/your-github/surfpet) |
 
 > 🔒 **本仓库不含任何真实数据**：角色卡是脱敏示例（`roles/`），记忆卡是空壳（`examples/`），
 > 群号 / 群友名单 / QQ 号 / B站 mid 全部为占位符。运行时数据永远只在你自己的机器上。
@@ -30,7 +22,7 @@
 
 把这句话发给 DSH：
 
-> 帮我安装 https://github.com/Mieksido/surfcore ，按 README 的步骤来。
+> 帮我安装 https://github.com/your-github/surfcore ，按 README 的步骤来。
 
 **顺序很重要**（DSH 常常先 install_bundle、后装依赖，结果激活时报 `Cannot find module '@deepseek-ai/schemastery'`）：
 
@@ -50,7 +42,7 @@
 ## 第一次装（4 条命令）
 
 ```powershell
-git clone --depth 1 https://github.com/Mieksido/surfcore.git
+git clone --depth 1 https://github.com/your-github/surfcore.git
 cd surfcore
 npm install
 node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
@@ -58,7 +50,7 @@ node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
 
 重启 DSH → 设置 → SurfCore → **诊断 → 一键安装（全部）**（自动发现 SnowLuma、写白名单、起桥接）。
 
-> 不想敲命令：`powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/Mieksido/surfcore/main/scripts/bootstrap.ps1 | iex"`
+> 不想敲命令：`powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/your-github/surfcore/main/scripts/bootstrap.ps1 | iex"`
 
 前置：Windows + Node ≥22.13 + DSH 0.2.1-rc.2 或更新（rc.3 已能安装，功能未完整回归） + SnowLuma（第三方，需自己装并扫码）。详见 [INSTALL.md](docs/guides/INSTALL.md)。
 
@@ -121,7 +113,7 @@ node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
 
 ```bash
 # 1) 取代码
-git clone https://github.com/Mieksido/surfcore.git
+git clone https://github.com/your-github/surfcore.git
 cd surfcore
 
 # 2) 装依赖（postinstall 会自动修补 @snowluma/sdk 的 ESM bug）
@@ -219,7 +211,7 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 
 ### 3.4 可选装语音
 
-两个独立仓库（[surfvoicelocal](https://github.com/Mieksido/surfvoicelocal) / [surfvoicecloud](https://github.com/Mieksido/surfvoicecloud)），装在仓库**外面**：
+两个独立仓库（[surfvoicelocal](https://github.com/your-github/surfvoicelocal) / [surfvoicecloud](https://github.com/your-github/surfvoicecloud)），装在仓库**外面**：
 
 | 仓库 | 端口 | 特点 |
 | --- | --- | --- |
@@ -234,7 +226,7 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 
 ### 3.5 可选装桌宠
 
-[surfpet](https://github.com/Mieksido/surfpet)：Electron 桌面分身（Release 里有安装包）。**用户装 Release 的 zip，开发者 clone 源码自己构建。**
+[surfpet](https://github.com/your-github/surfpet)：Electron 桌面分身（Release 里有安装包）。**用户装 Release 的 zip，开发者 clone 源码自己构建。**
 
 装法：设置页 **桌宠** → 填 zip 地址/目录 → 安装 → 选 `electron.exe` → 启动。
 装好后：右键「文本对话 / 语音对话」，气泡上所有她的话都有「回复」按钮，右键/托盘有**专注模式**。
@@ -272,13 +264,13 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 
 | 子系统 | 你能看到的能力 | 细节 |
 | --- | --- | --- |
-| **QQ** | 群/私聊收发、引用回复、分条、表情包、图片/动图、语音、拍一拍、合并转发展开、上线补历史、提问/审批回传、四种运行模式 | [MODULE-BRIDGE.md](docs/guides/ARCHITECTURE.md) |
-| **B站** | 扫码登录、看视频/打分/收藏、评论与回帖、发动态、分享到 QQ、私信、直播间监听、34 个 CLI 命令 | [SUBSYSTEM-BILI.md](docs/guides/ARCHITECTURE.md) |
+| **QQ** | 群/私聊收发、引用回复、分条、表情包、图片/动图、语音、拍一拍、合并转发展开、上线补历史、提问/审批回传、四种运行模式 | [MODULE-BRIDGE.md](docs/guides/MODULE-BRIDGE.md) |
+| **B站** | 扫码登录、看视频/打分/收藏、评论与回帖、发动态、分享到 QQ、私信、直播间监听、34 个 CLI 命令 | [SUBSYSTEM-BILI.md](docs/guides/SUBSYSTEM-BILI.md) |
 | **记忆** | 衰减卡（清晰度/遗忘/容量告警/压缩）、全量卡（append-only）、三场景共享、隐私 scope、双向记忆 | [MEMORY_CARD.md](docs/guides/MEMORY_CARD.md) |
 | **人格** | 多角色整包切换、自动存档/回档、管理员双身份、身份对齐 | [CHARACTER_PERSONA.md](docs/guides/CHARACTER_PERSONA.md) |
-| **主动** | 目的机制（目标假设/载体 QQ·桌宠/互斥回落）、对话收尾、二代 proactive | [PURPOSE_OUTREACH.md](docs/guides/ARCHITECTURE.md) |
+| **主动** | 目的机制（目标假设/载体 QQ·桌宠/互斥回落）、对话收尾、二代 proactive | [PURPOSE_OUTREACH.md](docs/guides/PURPOSE_OUTREACH.md) |
 | **语音** | 语音库发送、本地/云端 TTS 现场合成、语音包安装启停、音量/响度、频率上限；`qq_send_voice` / `qq_list_voices`（**AI 发语音默认关闭**） | [SUBSYSTEM-VOICE.md](docs/guides/SUBSYSTEM-VOICE.md) |
-| **桌宠** | 文本/语音对话、气泡与回复按钮、专注模式、目的载体、断线重连 | [SUBSYSTEM-PET.md](docs/guides/ARCHITECTURE.md) |
+| **桌宠** | 文本/语音对话、气泡与回复按钮、专注模式、目的载体、断线重连 | [SUBSYSTEM-PET.md](docs/guides/SUBSYSTEM-PET.md) |
 | **额度** | 每日 token 额度（QQ/B站/其他/总额，双单位，80% 提醒、100% 停）、消费看板 | [DATA-AND-CONFIG.md](docs/guides/DATA-AND-CONFIG.md) |
 | **工具面** | 39 个 `qq_*` 工具、三个 MCP server、两代 preset、fail-closed 工具守卫 | [AGENT-TOOLS-AND-PRESETS.md](docs/guides/AGENT-TOOLS-AND-PRESETS.md) |
 | **界面** | 设置页 14 个标签、控制台 10 个页面 | [UI-AND-CONSOLE.md](docs/guides/UI-AND-CONSOLE.md) |
@@ -330,18 +322,18 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 | 1 | [ARCHITECTURE.md](docs/guides/ARCHITECTURE.md) | 335 | 总纲 |
 | 2 | [DATA-AND-CONFIG.md](docs/guides/DATA-AND-CONFIG.md) | 351 | 三份配置每个键、约 95 个状态文件 |
 | 3 | [BOUNDARIES.md](docs/guides/BOUNDARIES.md) | 181 | 做不到什么、坏了怎么恢复 |
-| 4 | [MODULE-BRIDGE.md](docs/guides/ARCHITECTURE.md) | 1,020 | 桥接全文 |
-| 5 | [MODULE-CORE-A.md](docs/guides/ARCHITECTURE.md) | 1,001 | 记忆/人格/目的/收尾/额度/账本/计价/身份 |
-| 6 | [MODULE-CORE-B.md](docs/guides/ARCHITECTURE.md) | 1,098 | B站/鱼群/表情/黑话/文本化/SSRF/DSH 客户端 |
-| 7 | [MODULE-PLUGIN.md](docs/guides/ARCHITECTURE.md) | 1,101 | 插件宿主：装配、配置模型、设置页 API、B站 调度 |
+| 4 | [MODULE-BRIDGE.md](docs/guides/MODULE-BRIDGE.md) | 1,020 | 桥接全文 |
+| 5 | [MODULE-CORE-A.md](docs/guides/MODULE-CORE-A.md) | 1,001 | 记忆/人格/目的/收尾/额度/账本/计价/身份 |
+| 6 | [MODULE-CORE-B.md](docs/guides/MODULE-CORE-B.md) | 1,098 | B站/鱼群/表情/黑话/文本化/SSRF/DSH 客户端 |
+| 7 | [MODULE-PLUGIN.md](docs/guides/MODULE-PLUGIN.md) | 1,101 | 插件宿主：装配、配置模型、设置页 API、B站 调度 |
 | 8 | [UI-AND-CONSOLE.md](docs/guides/UI-AND-CONSOLE.md) | 677 | 设置页 14 标签 + 控制台 10 页 |
 | 9 | [SUBSYSTEM-VOICE.md](docs/guides/SUBSYSTEM-VOICE.md) | 855 | 语音三条链路 |
-| 10 | [SUBSYSTEM-PET.md](docs/guides/ARCHITECTURE.md) | 904 | 桌宠全链路 |
-| 11 | [SUBSYSTEM-BILI.md](docs/guides/ARCHITECTURE.md) | 981 | B站 34 命令 / 23 库 |
+| 10 | [SUBSYSTEM-PET.md](docs/guides/SUBSYSTEM-PET.md) | 904 | 桌宠全链路 |
+| 11 | [SUBSYSTEM-BILI.md](docs/guides/SUBSYSTEM-BILI.md) | 981 | B站 34 命令 / 23 库 |
 | 12 | [AGENT-TOOLS-AND-PRESETS.md](docs/guides/AGENT-TOOLS-AND-PRESETS.md) | 233 | 39 个工具、守卫、两代 preset |
 
 其它：DSH 装配 [DSH_SETUP.md](docs/guides/DSH_SETUP.md) · 安全基线 [SECURITY_BASELINE.md](docs/guides/SECURITY_BASELINE.md) ·
-踩坑 [PITFALLS.md](../README.md) · 风险台账 [RISK_REGISTER.md](../README.md) · 全部索引 [docs/README.md](docs/README.md)。
+踩坑档案与风险台账（开发期文档，未随发布包提供） · 全部索引 [docs/README.md](docs/README.md)。
 
 ---
 

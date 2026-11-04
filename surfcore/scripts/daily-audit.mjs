@@ -154,6 +154,24 @@ for (const d of bakDirs) {
 }
 add(bakCount > 40 ? 'warn' : 'ok', '整理', `源码目录里 .bak 备份 ${bakCount} 个`, bakCount > 40 ? '该合并了，不然找文件会眼花' : undefined);
 
+// ── 12. 学习账本质量 ─────────────────────────────────
+const ledger = readJson(path.join(STATE, 'learn-ledger.json'));
+if (ledger && ledger.items) {
+  const items = Object.values(ledger.items);
+  // 判定标准要和提取规则对齐：提取出来的 topic 是「被禁止的那个行为」，
+  // 「发群里」「应得太直接」看着像碎片，其实是规矩的内容，不能算垃圾。
+  const short = items.filter((x) => String(x.topic || '').length < 3);
+  const frag = items.filter((x) => /[？?呢吗吧]$/.test(String(x.topic || '')) || /^(有|是|在|就|那|这)/.test(String(x.topic || '')));
+  const byOwner = items.filter((x) => (x.sources || []).includes('owner')).length;
+  const bad = short.length + frag.length;
+  const pct = items.length ? Math.round((bad / items.length) * 100) : 0;
+  add(bad > items.length * 0.3 ? 'warn' : 'ok', '学习账本',
+    `${items.length} 条（${byOwner} 条主人教的）· 主题过短 ${short.length} · 像半句话 ${frag.length}（${pct}%）`);
+  if (bad > items.length * 0.3) {
+    add('warn', '学习账本', '提取逻辑把聊天半句当主题了', '应收紧到祈使句/规则句；待改：learn-ledger 的 topic 抽取');
+  }
+}
+
 // ── 11. DSH 会话目录一致性 ───────────────────────────
 try {
   const out = execFileSync('/opt/homebrew/opt/node@22/bin/node', [path.join(SURF, 'scripts', 'check-session-integrity.mjs')],

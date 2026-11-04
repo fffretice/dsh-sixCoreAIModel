@@ -10,6 +10,29 @@ This is not another "LLM wired to a chat app" framework. It gives the model an i
 a memory that forgets, a circadian rhythm, and two hands (QQ + Bilibili) — and it makes
 all of those things **interact**, so behaviour changes with state instead of being executed.
 
+Current release: **1.1.0**.
+
+## What's new in 1.1
+
+- **Prompt-injection shield** — inbound group text is scanned for "ignore your instructions",
+  impersonation of the owner, and attempts to read or rewrite memory; hits are neutralised
+  before they reach the model (`src/prompt-shield.js`).
+- **Search memory** — what she looked up (and what came back) is kept, so she can recall
+  "I checked that before" instead of re-searching blindly.
+- **Sticker semantics** — stickers carry emotion/content/tags; picking one is matched to the
+  current mood instead of cycling the same three.
+- **Care beyond chat** — `qq_create_task`: she can ask you to do one small thing (sleep,
+  eat, take a walk), and remembers whether you did it.
+- **Quotas that follow the room** — per-group quota is distributed by activity level instead
+  of split evenly, with quieter nights.
+- **Agent presets are included** — `surfcore/dsh/agent-presets/` now ships both `qq-chat` and
+  `qq-chat-v2`, so `node scripts/setup-dsh.mjs` has something to install.
+- **Deep-dive documentation** — `surfcore/docs/guides/MODULE-*.md` and `SUBSYSTEM-*.md`:
+  ~600 KB of line-by-line notes (`file:line`) for the bridge, the cores, the plugin host,
+  Bilibili, the desktop pet and the voice path.
+- **Configurable, not hard-coded** — interest words, forbidden character names (identity
+  guard) and the bot's own QQ now come from `config.json`; nothing personal is baked in.
+
 ---
 
 ## What you get after installing
@@ -35,9 +58,10 @@ dsh-sixCoreAIModel/
 │   ├── src/                six cores + bridge (~2 MB of source)
 │   ├── roles/              character cards live here (templates: _TEMPLATE.md / _TEMPLATE.规则.md)
 │   ├── plugins/            DSH plugin (settings UI, presets, Bilibili tools)
+│   ├── dsh/agent-presets/  qq-chat / qq-chat-v2 — installed into DSH by setup-dsh.mjs
 │   ├── public/             web console
 │   ├── scripts/            install, audit, watchdog scripts
-│   └── docs/guides/        deeper documentation
+│   └── docs/guides/        deeper documentation (ARCHITECTURE, MODULE-*, SUBSYSTEM-*)
 └── docs/
     ├── INSTALL-Windows.md  ← full Windows walkthrough
     ├── INSTALL-macOS.md    ← full macOS walkthrough (SnowLuma runs in Docker)

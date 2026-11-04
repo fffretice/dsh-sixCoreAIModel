@@ -363,8 +363,8 @@ curl 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/create' \
 | 参数名 | 类型 | 内容 | 必要性 | 备注 |
 | ------ | ---- | ---- | ------ | ---- |
 | raw_text | string | 文本 | 必要 |    |
-| type | number | 组件类型 id | 不必要 | 参见 富文本节点类型 |
-| biz_id | string | 动态组件的内容id转字符串 | 不必要 | 参见 富文本节点类型 |
+| type | number | 组件类型 id | 不必要 | 参见 [富文本节点类型](../opus/rich_text_nodes.md) |
+| biz_id | string | 动态组件的内容id转字符串 | 不必要 | 参见 [富文本节点类型](../opus/rich_text_nodes.md) |
 
 `dyn_req.topic` 对象:
 

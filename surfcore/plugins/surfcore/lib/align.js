@@ -387,7 +387,8 @@ export function stats() {
     byPlatform: {
       qq: state.links.filter((l) => l.identities.qq).length,
       bili: state.links.filter((l) => l.identities.bili).length,
-      tieba: state.links.filter((l) => l.identities.tieba).length,
+      tieba: state.links.filter((l) => l.identities.tieba).length,
+
     },
     updatedAt: state.updatedAt,
   };

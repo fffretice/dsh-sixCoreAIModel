@@ -1,9 +1,5 @@
 # 手把手安装（Windows）
 
-> **这份是细节补充。** 完整的安装入口在仓库根的 [`../../../INSTALL.md`](../../../INSTALL.md)，
-> 平台差异见 [`../../../docs/INSTALL-Windows.md`](../../../docs/INSTALL-Windows.md)。
-> 本文保留下来的价值是：每一步的**预期输出**与失败长相，以及 Windows 侧的特殊处理。
-
 > 目标：从一台干净的 Windows 电脑，到"她在群里回第一句话"。
 > 全程约 **20 分钟**，其中 10 分钟是等下载。
 >
@@ -76,7 +72,7 @@ SnowLuma 是第三方的 QQ 运行时，**本项目不打包、不代装**（EUL
 
 ```powershell
 cd D:\
-git clone https://github.com/Mieksido/surfcore.git
+git clone https://github.com/your-github/surfcore.git
 cd surfcore
 npm install
 ```
@@ -193,7 +189,7 @@ http://127.0.0.1:3100/?token=<consoleToken>
 
 ```powershell
 cd state\voice-packs
-git clone https://github.com/Mieksido/surfvoicecloud.git voice-cloud
+git clone https://github.com/your-github/surfvoicecloud.git voice-cloud
 cd voice-cloud
 node scripts\fetch-models.mjs      # 下载模型并校验
 ```
@@ -205,7 +201,7 @@ node scripts\fetch-models.mjs      # 下载模型并校验
 
 ### 桌宠
 
-1. 去 <https://github.com/Mieksido/surfpet/releases/latest> 下 `pet-pack.zip`；
+1. 去 <https://github.com/your-github/surfpet/releases/latest> 下 `pet-pack.zip`；
 2. 设置 → 桌宠 → 填 Electron 路径（`electron.exe`）→ 填 zip 路径 → 安装 → 启动。
 
 ---

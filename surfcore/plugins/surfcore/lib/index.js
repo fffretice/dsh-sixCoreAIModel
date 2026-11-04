@@ -245,7 +245,7 @@ export function apply(ctx) {
       const list = [];
       const updCfg = readUnified().config?.updates ?? {};
       // 1) SurfCore 本体：源码树，走 git
-      list.push({ id: 'surfcore', name: 'SurfCore 本体', dir: QQBOT_ROOT, kind: 'git', branch: 'main', versionRepo: 'Mieksido/surfcore' });
+      list.push({ id: 'surfcore', name: 'SurfCore 本体', dir: QQBOT_ROOT, kind: 'git', branch: 'main', versionRepo: 'your-github/surfcore' });
       // 2) 语音包（bridge 管理的安装目录；config.json 的 voicePacks.dir 可覆盖）
       //    是 git clone 就走 git；不是则看有没有配版本清单（updates.voice.*VersionUrl）
       try {
@@ -254,11 +254,11 @@ export function apply(ctx) {
         const voice = updCfg.voice ?? {};
         list.push({
           id: 'surfvoice-local', name: '语音包（本地）', dir: path.join(packsDir, 'voice-local'),
-          kind: 'auto', branch: 'main', versionUrl: voice.localVersionUrl || '', versionRepo: 'Mieksido/surfvoicelocal',
+          kind: 'auto', branch: 'main', versionUrl: voice.localVersionUrl || '', versionRepo: 'your-github/surfvoicelocal',
         });
         list.push({
           id: 'surfvoice-cloud', name: '语音包（云端）', dir: path.join(packsDir, 'voice-cloud'),
-          kind: 'auto', branch: 'main', versionUrl: voice.cloudVersionUrl || '', versionRepo: 'Mieksido/surfvoicecloud',
+          kind: 'auto', branch: 'main', versionUrl: voice.cloudVersionUrl || '', versionRepo: 'your-github/surfvoicecloud',
         });
       } catch {}
       // 3) 桌宠：构建产物，走版本清单（zip 安装包）；更新交给 petService.updateFromZip（保留 data/）
@@ -1919,7 +1919,7 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
           events: { ...chatStatus.events, hostFile: petApi.hostFile },
           lastError: chatStatus.lastError,
           defaults: {
-            zipUrl: 'https://github.com/Mieksido/surfpet/releases/latest/download/pet-pack.zip',
+            zipUrl: 'https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip',
             electronUrl: electronDownloadUrl(),
             electronVersion: ELECTRON_VERSION,
           },

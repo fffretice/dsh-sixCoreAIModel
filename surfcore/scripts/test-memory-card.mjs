@@ -60,7 +60,7 @@ test('重要度：和主人的情绪互动最重，第一次见面是永久锚�
 test('QQ inbox：投递一次就入库；重复不重复占容量；第一句主人消息被钉成锚点', () => {
   const card = createEmptyCard(NOW);
   const lines = [
-    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: 'omm', senderId: '1000000001', text: '角色在吗', isOwner: false, direct: true }),
+    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: '群友A', senderId: '1000000005', text: '角色在吗', isOwner: false, direct: true }),
     JSON.stringify({ at: '2026-10-20T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
     // 同一句话隔天重复：不重复占容量（同一段 2 天窗口内按文本去重）
     JSON.stringify({ at: '2026-10-21T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
@@ -578,8 +578,8 @@ test('桌宠对话：同一张记忆卡、platform/scope 独立，默认不进 B
   const t0 = NOW;
   const lines = [
     JSON.stringify({ at: new Date(t0).toISOString(), platform: 'pet', kind: 'private', sender: '主人', isOwner: true, private: true, direct: true, conversationKey: 'pet', text: '今天桌面上陪我一会儿好不好呀' }),
-    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
-    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
+    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
+    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
   ];
   const res = ingestInboxLines(card, lines, CFG, t0 + 2 * 60 * 60_000);
   assert.equal(res.added, 2, '主人一条 + 主动搭话一条；她的回复并进主人记录');

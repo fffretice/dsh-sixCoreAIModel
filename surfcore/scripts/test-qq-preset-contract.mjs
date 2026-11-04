@@ -103,7 +103,7 @@ test('autonomy limits and the observation escape hatch stay described', () => {
     // 黑话面
     'qq_slang_query', 'qq_slang_submit', '不重复提交',
     // 频率上限
-    '普通闲聊约 3~5 轮一张', '别刷屏', '每条只能一张，不能附带文字', '不要频繁拍',
+    '普通闲聊大约每 1~2 轮就可以发一张', '别刷屏', '每条只能一张，不能附带文字', '不要频繁拍',
     // 会话令牌是硬前置，漏传会被拒绝。
     '作为 token 参数传入',
     // 指定成员唤醒

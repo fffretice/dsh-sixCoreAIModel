@@ -294,6 +294,36 @@ function usageFile() {
   return path.join(root, 'state', 'search-usage.jsonl');
 }
 
+// ── 搜索记忆（2026-11-02）────────────────────────────
+// 主人：「她看到群里的内容会自己搜，但搜出来并没有学会，不划算。」
+// 所以把「搜过什么、搜到哪些条目」留一份，注入时让她看得见自己的检索史。
+// 注意：这里只留标题/摘要，不留全文；只为「想起来查过什么」，不是给她照抄。
+function searchMemoryFile() {
+  const root = process.env.SURFCORE_DIR || process.cwd();
+  return path.join(root, 'state', 'search-memory.jsonl');
+}
+
+export function rememberSearchResult({ query, provider, results, note = '' }, { keep = 300 } = {}) {
+  try {
+    const hits = (Array.isArray(results) ? results : [])
+      .slice(0, 3)
+      .map((r) => String(r.title || r.text || r.content || '').replace(/\s+/g, ' ').trim().slice(0, 90))
+      .filter(Boolean);
+    if (!hits.length && !note) return false;
+    const f = searchMemoryFile();
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.appendFileSync(f, JSON.stringify({ at: new Date().toISOString(), q: String(query || '').slice(0, 60), p: provider || '', hits, note: String(note || '').slice(0, 120) }) + '\n');
+    // 只留最近 keep 条，文件不会无限长
+    try {
+      const rows = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean);
+      if (rows.length > keep) fs.writeFileSync(f, rows.slice(-keep).join('\n') + '\n');
+    } catch {}
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function pricingOf(config) {
   const p = (config && config.pricing) || {};
   return {
@@ -500,7 +530,7 @@ export function clearSearchCache() {
 
 // ── 360 搜索兜底（2026-10-31）────────────────────────────
 // 背景：DeepSeek 搜索没凭据；Bing 在这台机器上返回「查询词被丢掉」的通用页（她搜
-// 「学马氏」得到学信网就是这条路的锅）；搜狗对非浏览器请求直接跳 antispider。
+// 举例：把「学马氏」搜成学信网就是这条路的锅）；搜狗对非浏览器请求直接跳 antispider。
 // 360 的网页结果里带 data-mdurl（真实地址），不需要解跳转，最稳。
 const SO_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
@@ -648,6 +678,10 @@ export async function webSearch(query, options = {}) {
       usage: Array.isArray(value.results) ? value.results.__usage || null : null,
       ms: Array.isArray(value.results) ? value.results.__ms || 0 : 0
     }, config);
+  } catch {}
+  // 同时留一份「搜过什么」，给注入用（缓存命中时也记，因为那是她真实的一次检索）
+  try {
+    rememberSearchResult({ query: q, provider: value.provider, results: value.results, note: value.note || '' }, config?.memory || {});
   } catch {}
   cache.set(cacheKey, { at: Date.now(), value });
   if (cache.size > CACHE_MAX_ENTRIES) {

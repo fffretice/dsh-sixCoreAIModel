@@ -427,7 +427,7 @@ function stableInitialChance(id) {
  * 刷新所有记录的「最初」标记、自动初次相遇、最早主人互动时间。
  * 纯确定性：同一张卡多次读取结果一致；只有记录/首次时间变化才会变。
  */
-export function refreshInitialState(card) {
+export function refreshInitialState(card, now = Date.now()) {
   if (!card || !Array.isArray(card.records)) return;
   const ownerRecords = card.records
     .filter((record) => asArray(record.tags).includes('owner'))
@@ -455,6 +455,12 @@ export function refreshInitialState(card) {
     card.meta.firstMetEventId = earliest ? earliest.id : '';
   }
 
+  // 2026-11-04：整张卡的年龄也要算进去。原来「最初」按**绝对天数**给概率
+  //（<10 天 = 0.9），可这张卡才 7 天，98% 的记录全成了「最初」，
+  // 「最近记得的」于是永远空——换头像那条就是这么丢的。
+  // 现在按卡龄把天数拉回 30 天尺度：卡越年轻，越只有头几天算「最初」。
+  const historyDays = firstAt ? Math.max(1, (now - firstAt) / DAY_MS) : 30;
+  const initialScale = historyDays < 30 ? 30 / historyDays : 1;
   for (const record of card.records) {
     const tags = new Set(asArray(record.tags));
     tags.delete('initial');
@@ -486,8 +492,9 @@ export function refreshInitialState(card) {
     const offsetDays = firstAt
       ? Math.max(0, Math.floor((timeOf(record.createdAt, firstAt) - firstAt) / DAY_MS))
       : 0;
-    const probability = initialProbabilityForOffset(offsetDays);
-    record.initialTier = initialTierForOffset(offsetDays);
+    const scaledOffset = offsetDays * initialScale;
+    const probability = initialProbabilityForOffset(scaledOffset);
+    record.initialTier = initialTierForOffset(scaledOffset);
     record.initialProbability = probability;
     record.isInitial = stableInitialChance(record.id) < probability;
     if (record.isInitial) tags.add('initial');
@@ -1370,6 +1377,35 @@ export function ingestInboxLines(card, lines, config = {}, now = Date.now()) {
       continue;
     }
 
+    // 2026-11-04：她**做过的事**（换头像、画画、写日记、发语音）单独记一条。
+    // 以前这类动作只有在她嘴上说出来时、作为「回复」的一截才留下，
+    // 群里有人问「你是不是换头像了」，她翻不到「我做过什么」。
+    if (item.isSelf === true && item.action === true) {
+      const speaker = short(item.sender ?? '角色', 24) || '角色';
+      const result = addMemoryRecord(card, {
+        source: 'qq-action',
+        sourceId: '',
+        text,
+        title: `她做过：${short(text, 24)}`,
+        isSelf: true,
+        isPrivate,
+        direct: true,
+        createdAt: at,
+        lastSeenAt: at,
+        speaker,
+        groupId: item.groupId ?? '',
+        private: isPrivate,
+        conversationKey,
+        tags: ['qq', 'self', 'action'],
+        manualImportance: 45,
+      }, cfg, now);
+      if (result.added) {
+        added += 1;
+        touched += touchMemories(card, text, at);
+      }
+      continue;
+    }
+
     // 她自己的发言：优先并进最近一条“还没回话”的主人记录，形成一问一答；
     // 找不到对应主人记录时，单独记一条 self 记忆（群聊里也能看到她说了什么）。
     if (item.isSelf === true) {
@@ -1737,8 +1773,12 @@ function sectionize(card, { platform = 'all', now = Date.now(), config = {}, lim
   // 2026-10-30 主人：最近发生的事也该出现。
   // 以前这里只收**非 owner** 记录，而她的记录几乎全带 owner 标签 → 这一节永远是空的。
   // 现在 owner 没被挑走的近期记录也进来，按时间倒序。
+  // 2026-11-04：这一节以前要求「不是最初」，可整张卡才 7 天，按 offset 算概率
+  // 有 98% 的记录都被标成「最初」→ 这一节永远空，最近发生的事一条也进不来
+  // （换头像那条就是这么丢的）。现在改成：先让「最初」和「和主人」各占自己的名额，
+  // 剩下的记录里挑最新的 8 条，**不再看 isInitial**。
   const recentPool = visible
-    .filter((item) => !item.pinned && item.platform !== 'pet' && !item.isInitial && !used.has(item.id))
+    .filter((item) => !item.pinned && item.platform !== 'pet' && !used.has(item.id))
     .filter((item) => (now - timeOf(item.createdAt, now)) / DAY_MS <= cfg.recentDays)
     .sort((a, b) => timeOf(b.createdAt, now) - timeOf(a.createdAt, now));
   for (const record of recentPool) push(recent, record, 'recent');
@@ -2060,6 +2100,8 @@ export function appendMemoryInboxEvent(paths, event = {}, { maxBytes = 1024 * 10
       private: event.private === true || event.kind === 'private',
       direct: event.direct === true,
       quoteSelf: event.quoteSelf === true,
+      // 2026-11-04：她做过的动作（不是说的话），ingest 会把它单独记一条。
+      action: event.action === true,
       text,
     });
     fs.appendFileSync(paths.inbox, `${line}\n`, { encoding: 'utf8', mode: 0o600 });

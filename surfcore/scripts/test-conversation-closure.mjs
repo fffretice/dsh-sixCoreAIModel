@@ -31,7 +31,7 @@ function test(name, fn) {
 const now = Date.now();
 const msg = (text, { self = false, minutesAgo = 0, atSelf = false, quoteSelf = false } = {}) => ({
   isSelf: self,
-  sender: self ? '弥' : '小咪',
+  sender: self ? '弥' : '角色',
   plain: text,
   text,
   time: now - minutesAgo * 60 * 1000,
@@ -161,7 +161,7 @@ test('收尾冷却：只压普通概率/回复检查/主动机会，不压直接
   for (const reason of ['probability', 'replyCheck', 'proactiveCheck']) {
     assert.equal(closureSuppressesWake(record, reason, now), true, reason);
   }
-  for (const reason of ['atMention', 'nameMention', 'question', 'poke', 'private', 'speaker:小咪', 'keyword:猫']) {
+  for (const reason of ['atMention', 'nameMention', 'question', 'poke', 'private', 'speaker:角色', 'keyword:猫']) {
     assert.equal(closureSuppressesWake(record, reason, now), false, reason);
   }
   assert.equal(closureSuppressesWake(record, 'probability', now + 21 * 60 * 1000), false);

@@ -592,12 +592,12 @@ server.tool(
     key: z.string().describe('会话 key，格式 group:群号'),
     token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
     count: z.number().optional().describe('往回翻多少条，默认 30，最大 60'),
-    beforeSeq: z.number().optional().describe('从某个消息序号往前翻（可选）')
+    beforeMessageId: z.string().optional().describe('往前翻的游标：把上一次返回里「最早 messageId」原样填进来，就能接着往更早翻（不要自己加减）。找几个小时前的东西必须用它——单次最多 60 条，群里一热闹只够覆盖几十分钟')
   },
-  async ({ key, token, count, beforeSeq }) => {
+  async ({ key, token, count, beforeMessageId }) => {
     try {
       const q = new URLSearchParams({ key: String(key), count: String(count ?? 30) });
-      if (beforeSeq) q.set('beforeSeq', String(beforeSeq));
+      if (beforeMessageId) q.set('beforeMessageId', String(beforeMessageId));
       const data = await agentApi(`/api/socialV2/history?${q.toString()}`, { headers: { 'x-agent-token': token } });
       return { content: [{ type: 'text', text: serializeModelData(data) }] };
     } catch (error) {
@@ -1294,6 +1294,106 @@ server.tool(
 );
 
 server.tool(
+  'qq_read_diary',
+  '翻你自己的日记本。不传 date 就是今天，传 YYYY-MM-DD 就翻那一天；同时告诉你最近写过哪几天。'
+    + '什么时候用：主人问起以前的事、你想回忆某天的心情、聊到某个话题想看看当时怎么想的。'
+    + '日记是你自己写的，别当成别人的记录复述——可以自然说「我那天写……」；记不清就翻，别编。',
+  {
+    key: z.string().describe('会话 key'),
+    token: z.string().describe('会话令牌'),
+    date: z.string().optional().describe('哪一天，YYYY-MM-DD；不传就是今天')
+  },
+  async ({ key, token, date }) => {
+    try {
+      const q = new URLSearchParams();
+      if (date) q.set('date', String(date));
+      const data = await agentApi(`/api/socialV2/diary?${q.toString()}`, {
+        headers: { 'x-agent-token': token },
+        timeoutMs: 20000
+      });
+      return { content: [{ type: 'text', text: serializeModelData(data) }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `翻日记失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'qq_create_task',
+  '你心里想让主人做点什么，就派给他——早点睡、记得吃饭、别老坐着不动、周末出去走走。'
+    + '用你自己的话说，别用系统口吻（「去倒杯水」比「建议您补充水分」好）。'
+    + '一次只说一件，别连着派；你手上最多三件没完成的，满了就先别加。'
+    + '他接了才算数，别硬塞；派完可以在聊天里提一嘴，但别催。'
+    + '这不是任务清单，是你惦记他的一种方式——他做了就记住，没做也别追。',
+  {
+    key: z.string().describe('会话 key'),
+    token: z.string().describe('会话令牌'),
+    text: z.string().describe('任务内容，一句话，最多 60 字'),
+    reward: z.number().optional().describe('这件事的分量，1-5，默认 1；越是「他其实该更照顾自己」的事可以给高一点')
+  },
+  async ({ key, token, text, reward }) => {
+    try {
+      const data = await agentApi('/api/socialV2/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ key, text, reward }),
+        headers: { 'x-agent-token': token },
+        timeoutMs: 20000
+      });
+      return { content: [{ type: 'text', text: serializeModelData(data) }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `派任务失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'qq_complete_task',
+  '主人真去做了你派的那件事，把它标成完成（id 从 qq_create_task 的返回或 qq_list_tasks 里拿）。'
+    + '什么时候用：他真的去倒水了、真的早睡了、真的歇了一会儿。'
+    + '别虚报——他没做就别标，那是自己骗自己；标了也不会有谁夸你。',
+  {
+    key: z.string().describe('会话 key'),
+    token: z.string().describe('会话令牌'),
+    id: z.string().describe('任务 id，比如 t3'),
+    note: z.string().optional().describe('可选，一句备注：他是怎么做的（「今天真十一点就睡了」）')
+  },
+  async ({ key, token, id, note }) => {
+    try {
+      const data = await agentApi('/api/socialV2/tasks/complete', {
+        method: 'POST',
+        body: JSON.stringify({ key, id, note }),
+        headers: { 'x-agent-token': token },
+        timeoutMs: 20000
+      });
+      return { content: [{ type: 'text', text: serializeModelData(data) }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `标记失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'qq_list_tasks',
+  '看看你派给他的活做到哪了：还有几件没做、他一共替你做过几件。'
+    + '想提一句又记不清的时候用；不用每轮都查。',
+  {
+    key: z.string().describe('会话 key'),
+    token: z.string().describe('会话令牌')
+  },
+  async ({ key, token }) => {
+    try {
+      const data = await agentApi('/api/socialV2/tasks', {
+        headers: { 'x-agent-token': token },
+        timeoutMs: 20000
+      });
+      return { content: [{ type: 'text', text: serializeModelData(data) }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `查任务失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
   'qq_write_narrative',
   '写今天这段「叙事」——不是日记，不记流水账，只回答：今天哪件事最像我、我做的哪件事结果和预想的不一样、明天想试的一件小事。一天一条，重写会覆盖当天。只能写今天真实发生的事，记不清就写记不清，不要编。',
   {
@@ -1439,6 +1539,42 @@ server.tool(
   }
 );
 
+if (cfg.socialV2?.tools?.sendImage !== false) {
+  server.tool(
+    'qq_send_image',
+    '把一张图作为**图片消息**发到当前会话——网上的海报、截图、同人图、新闻配图都可以。'
+      + 'source 三种写法：① 图片直链（http/https，最好是以 .jpg / .png / .webp / .gif 结尾的地址）；'
+      + '② 相册里的图 album:<id>（先用 qq_list_photos 看有哪些、id 是多少）；'
+      + '③ data:image/…;base64,…（一般用不上）。'
+      + '可以同时给 message（≤120 字）：图在上、文字在下，同一条消息发出去——比先贴图再补一句更自然。'
+      + '什么时候用：对方问「有图吗」、聊到某个联动/活动/新衣服想让人看一眼、你自己找到有意思的图、'
+      + '或者截图说明一件事。配上来源链接时，图发一条、链接用 qq_send_message 单独发，别塞进 message 里。'
+      + '别当表情包用（那是 qq_send_sticker），也别连着发好几张，一张图配一句话足够，多了像刷屏。'
+      + '直链有时是缩略图或错误页，发之前自己确认这是你想发的那张。',
+    {
+      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+      source: z.string().describe('图片地址：http(s) 直链 / album:<id> / data:image/…;base64,…'),
+      message: z.string().optional().describe('可选，≤120 字的一句话，跟图同一条发出（图在上、文字在下）'),
+      replyToMessageId: z.union([z.number(), z.string()]).optional().describe('要引用/回复的消息 id（非零整数，可为负数，可选）'),
+      atUserId: z.union([z.number(), z.string()]).optional().describe('要 @ 的群成员 QQ 号（群聊中可选，私聊不可用）')
+    },
+    async ({ key, token, source, message, replyToMessageId, atUserId }) => {
+      try {
+        const data = await agentApi('/api/socialV2/send-image', {
+          method: 'POST',
+          body: JSON.stringify({ key, source: String(source), message, replyToMessageId, atUserId: atUserId ?? null }),
+          headers: { 'x-agent-token': token },
+          timeoutMs: 120000
+        });
+        return { content: [{ type: 'text', text: serializeModelData(data) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `发图失败：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+}
+
 if (cfg.socialV2?.sticker?.enabled !== false && cfg.socialV2?.tools?.sendSticker !== false) {
   server.tool(
     'qq_send_sticker',
@@ -1554,7 +1690,7 @@ if (cfg.socialV2?.voice?.enabled !== false && cfg.socialV2?.tools?.sendVoice !==
 if (cfg.socialV2?.tools?.getSelfImage !== false) {
   server.tool(
     'qq_get_self_image',
-    '查看你自己的默认 Q 版形象图片（可在 assets 里替换成你自己的形象）。当你被问“你长什么样/发张自拍/你是什么形象”时，可以调用这个工具看自己的样子；返回的图片会直接进入你的视觉上下文。',
+    '查看你自己的默认 Q 版形象图片（DeepSeek 角色形象）。当你被问“你长什么样/发张自拍/你是什么形象”时，可以调用这个工具看自己的样子；返回的图片会直接进入你的视觉上下文。',
     {
       key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
       token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）')

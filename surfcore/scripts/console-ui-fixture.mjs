@@ -286,10 +286,10 @@ function usageRecentFixture() {
 
 export function makeFixtureState() {
   return {
-    mode: 'reserved2', role: '招牌词', roleMode: 'active', closedAgentPreset: '', paused: false,
-    roles: ['招牌词', '温柔助手', '技术伙伴'],
+    mode: 'reserved2', role: '角色', roleMode: 'active', closedAgentPreset: '', paused: false,
+    roles: ['角色', '温柔助手', '技术伙伴'],
     roleContents: {
-      招牌词: '# 招牌词\n\n- 性格：好奇、爱接梗，遇到不懂的会直接问\n- 说话风格：简短，偶尔用 emoji',
+      角色: '# 角色\n\n- 性格：好奇、爱接梗，遇到不懂的会直接问\n- 说话风格：简短，偶尔用 emoji',
       温柔助手: '# 温柔助手\n\n- 性格：温和、有耐心\n- 说话风格：先共情再回答',
       技术伙伴: '# 技术伙伴\n\n- 性格：直接、爱讲原理\n- 说话风格：先给结论再解释',
     },
@@ -313,7 +313,7 @@ export function makeFixtureState() {
       surrenderProbability: 0.08, contextWindow: 20, maxReplyChars: 500,
       burstEnabled: true, burstIntervalMinMs: 1000, burstIntervalMaxMs: 3000,
       longGapProbability: 0.1, longGapMinMs: 2500, longGapMaxMs: 5000,
-      mustReplyKeywords: ['招牌词', 'DeepSeek'], proactiveEnabled: true,
+      mustReplyKeywords: ['角色', 'DeepSeek'], proactiveEnabled: true,
       proactiveIdleThresholdMs: 1800000, proactiveCheckMinMs: 300000,
       proactiveCheckMaxMs: 900000, proactiveProbability: 0.2,
     },
@@ -455,7 +455,7 @@ export async function startConsoleFixture({ port = 0, original = false, htmlPath
           case '/api/socialV2/tool-log': return json({ ok: true, entries: state.toolLog });
           case '/api/socialV2/feedback': return json({ ok: true, entries: state.feedback });
           case '/api/socialV2/memory': return json({ ok: true, raw: { activeTopics: [{ text: '周末的阅读计划', pendingQuestion: '有没有推荐的书？' }], pendingThoughts: [{ text: '分享一张风景照片', motivation: '轻松交流' }], memberImpressions: { 演示群友: { traits: ['友善', '喜欢技术'], interactionCount: 6 } } } });
-          case '/api/socialV2/state': return json({ ok: true, key: url.searchParams.get('key'), wakeConfig: { mode: 'diving', infinite: false, sleepUntil: '2026-09-20T09:00:00.000Z', triggers: { atMention: true, keywords: ['招牌词'] }, wakeCount: 4 }, wakeSafety: { guaranteed: true }, unreadCount: 2, lastWakeReason: 'atMention' });
+          case '/api/socialV2/state': return json({ ok: true, key: url.searchParams.get('key'), wakeConfig: { mode: 'diving', infinite: false, sleepUntil: '2026-09-20T09:00:00.000Z', triggers: { atMention: true, keywords: ['角色'] }, wakeCount: 4 }, wakeSafety: { guaranteed: true }, unreadCount: 2, lastWakeReason: 'atMention' });
           case '/api/socialV2/states': return json({ ok: true, conversations: state.sessions.map(x => ({ key: x.key, phase: 'diving', unreadCount: 2 })) });
           case '/api/socialV2/initial-prompt': {
             const key = url.searchParams.get('key') || '';

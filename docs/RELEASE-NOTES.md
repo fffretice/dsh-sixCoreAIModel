@@ -5,6 +5,38 @@ and how to re-verify.
 
 ---
 
+## 0. Version 1.1.0 (2026-11-04)
+
+Re-cut from the same deployment, three days later. Everything below in §1–§6 still holds; this section
+only lists what changed **since 1.0.0**.
+
+**New code that had to be checked**: prompt-injection shield, search memory, sticker semantics,
+task/care mechanism, per-group quota distribution, nightly audit, `learn-ledger` teaching extraction,
+plus the two agent presets that 1.0.0 accidentally left out (`surfcore/dsh/agent-presets/`).
+
+**New leaks found and fixed in this pass** (all of them existed in 1.0.0):
+
+| What | Where | Fix |
+| --- | --- | --- |
+| GitHub account of the original author | 39 places: clone URLs, update-check defaults, docs | replaced with `your-github`; you set your own |
+| Real Windows username inside a UI hint | `plugins/surfcore/lib/client.js` | rewritten as "Windows usernames with special characters" |
+| The bot's own QQ as a hard-coded fallback | `src/bridge.js` ×3 | falls back to empty; read from config |
+| A group member's QQ + nickname as a prompt example | `src/bridge.js`, two test fixtures | `1000000005` / `群友A` |
+| Two group names, used as comments | `src/token-guard.js`, `src/bridge.js` | generic "群 A / 群 B / 某个群" |
+| Persona keywords baked into defaults | `FISH_RE`, `aiMention`, `mustReplyKeywords`, `recommendedKeywords` | read from `socialV2.interests`; defaults empty |
+| Borrowed-voice character names | `OTHER_CHARACTER_NAMES` in bridge and pet-chat | `socialV2.identityGuard.forbiddenNames` |
+
+**Also changed**: twelve new deep-dive docs (`MODULE-*`, `SUBSYSTEM-*`, `PURPOSE_OUTREACH`,
+`DSH_020_ADAPTATION`, `CONSOLE-UI-TESTING`, `TOKEN_USAGE_CONSOLE`, `VERSIONS`). They are Chinese-only —
+the top-level docs are still English-first. Their `file:line` references are a snapshot; line numbers drift.
+Links into the dev-only documents (PITFALLS / ROADMAP / HANDOFF / RISK_REGISTER / cases) were rewritten
+into plain text so nothing points at a missing file.
+
+**Current audit result: high 0 / mid 249 / low 3.** Same character as 1.0.0: every mid is a test fixture
+or an example id in the Bilibili API docs.
+
+---
+
 ## 1. Origin
 
 Taken from a real deployment of a persona agent that had been running for five days on a single macOS machine.

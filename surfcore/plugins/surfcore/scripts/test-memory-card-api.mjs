@@ -31,7 +31,7 @@ process.env.SURFCORE_DISABLE_MEMORY_TIMER = '1';
 const now = Date.now();
 fs.writeFileSync(path.join(dshHome, 'surfcore', 'memory', 'memory-inbox.jsonl'), [
   JSON.stringify({ at: new Date(now - 60_000).toISOString(), kind: 'private', sender: '主人', senderId: '10001', isOwner: true, private: true, direct: true, text: '第一次跟角色说：以后就是一家人了' }),
-  JSON.stringify({ at: new Date(now - 30_000).toISOString(), kind: 'group', sender: 'omm', senderId: '1000000001', isOwner: false, direct: true, text: '角色今天在吗' }),
+  JSON.stringify({ at: new Date(now - 30_000).toISOString(), kind: 'group', sender: '群友A', senderId: '1000000005', isOwner: false, direct: true, text: '角色今天在吗' }),
 ].join('\n') + '\n');
 fs.writeFileSync(path.join(qqbotRoot, 'state', 'bili-memory.json'), `${JSON.stringify({
   generatedAt: new Date(now).toISOString(),

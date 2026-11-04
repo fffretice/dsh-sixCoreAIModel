@@ -36,15 +36,15 @@ assert.equal(cleanReply('```\n在呢\n```'), '在呢');
 // ── 记忆卡事件：和 QQ / B站 同一张卡，但 platform=pet ─────────────────────
 {
   const now = Date.now();
-  const pair = buildPetMemoryEvents({ userText: '在干嘛呀', replyText: '在陪你呀', at: now, roleName: '小咪' });
+  const pair = buildPetMemoryEvents({ userText: '在干嘛呀', replyText: '在陪你呀', at: now, roleName: '角色' });
   assert.equal(pair.length, 2, '一问一答 = 两条 inbox 事件');
   assert.equal(pair[0].platform, 'pet');
   assert.equal(pair[0].isOwner, true);
   assert.equal(pair[0].text, '在干嘛呀');
   assert.equal(pair[1].isSelf, true);
-  assert.equal(pair[1].sender, '小咪');
+  assert.equal(pair[1].sender, '角色');
   assert.equal(pair[1].text, '在陪你呀');
-  const proactive = buildPetMemoryEvents({ replyText: '突然想跟你说句话', at: now, roleName: '小咪' });
+  const proactive = buildPetMemoryEvents({ replyText: '突然想跟你说句话', at: now, roleName: '角色' });
   assert.equal(proactive.length, 1, '主动搭话只有她自己那条');
   assert.equal(proactive[0].isSelf, true);
   assert.equal(proactive[0].platform, 'pet');

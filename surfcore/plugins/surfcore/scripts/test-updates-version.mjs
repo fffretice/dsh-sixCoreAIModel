@@ -18,7 +18,7 @@ global.fetch = async (url) => {
   return { ok: false, json: async () => ({}) };
 };
 {
-  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.available, true);
   assert.equal(r.installedVersion, '0.4.6');
   assert.equal(r.latestVersion, '0.4.7');
@@ -29,7 +29,7 @@ global.fetch = async (url) => {
 // 2) 已是最新 → 不报更新
 global.fetch = async () => ({ ok: true, json: async () => ({ tag_name: 'v0.4.6', html_url: 'https://example.test/v0.4.6' }) });
 {
-  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.updateAvailable, false);
 }
 
@@ -40,7 +40,7 @@ global.fetch = async (url) => {
   return { ok: false, json: async () => ({}) };
 };
 {
-  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.latestVersion, '0.5.0');
   assert.equal(r.updateAvailable, true);
 }
@@ -52,7 +52,7 @@ global.fetch = async (url) => {
   return { ok: false, json: async () => ({}) };
 };
 {
-  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir, versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.latestVersion, '0.5.3', 'Release 落后时应取 tag 的较高版本');
   assert.equal(r.updateAvailable, true);
 }
@@ -66,7 +66,7 @@ global.fetch = async (url) => {
     if (String(url).includes('/tags')) return { ok: true, json: async () => [{ name: 'v0.5.3' }] };
     return { ok: false, json: async () => ({}) };
   };
-  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir: newer, versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectVersionComponent({ id: 'surfcore', name: '本体', dir: newer, versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.updateAvailable, false);
   assert.equal(r.ahead, true, '本地领先应标 ahead');
   fs.rmSync(newer, { recursive: true, force: true });
@@ -81,7 +81,7 @@ global.fetch = async (url) => {
 // 5) git 目录没有 remote 时，inspectComponent 要回退到版本号检查（不是直接报"没有 origin remote"）
 global.fetch = async () => ({ ok: true, json: async () => ({ tag_name: 'v9.9.9', html_url: 'https://example.test/9' }) });
 {
-  const r = await inspectComponent({ id: 'surfcore', name: '本体', dir, kind: 'git', branch: 'main', versionRepo: 'Mieksido/surfcore' }, { fetch: true });
+  const r = await inspectComponent({ id: 'surfcore', name: '本体', dir, kind: 'git', branch: 'main', versionRepo: 'your-github/surfcore' }, { fetch: true });
   assert.equal(r.available, true);
   assert.equal(r.latestVersion, '9.9.9');
   assert.equal(r.updateAvailable, true);

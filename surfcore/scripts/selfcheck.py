@@ -139,6 +139,18 @@ def main():
     print(f"  新指令: {len(new_rows)} 条（inbox {total} 行，已读到 {seen}）")
     print(f"  服务: dshReady={dsh_ready} voxd={voxd} gsv={gsv} snowluma={snow} 桌宠={pet_alive}({pet_pid or '-'})")
     print(f"  距上次自检: {gap} 分钟")
+    # 群额度动态分配（2026-11-01）：读 bridge 每小时写下的 caps
+    try:
+        q = json.load(open(os.path.expanduser("~/SurfCore/state/quota-rebalance.json"), encoding="utf-8"))
+        if q.get("caps"):
+            today = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+            tag = "已重置" if q.get("day") == today else f"旧数据 {q.get('day')}"
+            pairs = " · ".join(f"{k} {v}" for k, v in q["caps"].items())
+            print(f"  群额度({tag}): {pairs}")
+        else:
+            print("  群额度: 尚未分配（等 bridge 首次重算）")
+    except Exception:
+        print("  群额度: 无分配文件")
     for r in new_rows:
         print(f"  ---- 未处理: [{r['at'][:16]}] {r['text'][:160]}")
     # 机器可读一行，方便我一眼看

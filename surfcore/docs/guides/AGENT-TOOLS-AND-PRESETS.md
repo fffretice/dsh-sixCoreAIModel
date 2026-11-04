@@ -48,7 +48,7 @@
 | `qq_get_group_members` | 群成员列表（号/昵称/群名片） | — |
 | `qq_get_group_history` | 群最近消息历史（可按 messageSeq 往前翻） | — |
 | `qq_get_active_members` | 最近活跃成员（判断话题参与者） | `getActiveMembers` |
-| `qq_get_self_image` | 看自己的 Q 版形象（DeepSeek 招牌词） | `getSelfImage` |
+| `qq_get_self_image` | 看自己的 Q 版形象（DeepSeek 角色） | `getSelfImage` |
 | `qq_list_voices` | 语音库清单（名字/时长/大小） | `sendVoice` |
 | `qq_list_stickers` | 收藏表情清单（编号/情绪/内容/关键词） | `listStickers` |
 
@@ -230,4 +230,4 @@ plugins/surfcore/presets/<preset>.patch.yml                    ← 生成物（�
 
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)（工具面在整体里的位置）、
 > [BOUNDARIES.md](BOUNDARIES.md)（失败模式总表）、[DSH_SETUP.md](DSH_SETUP.md)（安装细节）、
-> [../PITFALLS.md](../README.md)（#71 preset 漂移、守卫名单对账的历史教训）。
+> 踩坑档案（未随发布包提供）（#71 preset 漂移、守卫名单对账的历史教训）。

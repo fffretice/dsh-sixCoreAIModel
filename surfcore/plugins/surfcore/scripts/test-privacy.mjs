@@ -17,7 +17,7 @@ for (const item of cases) {
   assert.equal(result.ok, item.ok, `${item.why}: ${JSON.stringify(result)}`);
 }
 
-assert.equal(scanText('sk-1234567890abcdef1234567890abcdef').severe, true);   // release-audit: allow（假 key，用来测扫描器）
+assert.equal(scanText('sk-1234567890abcdef1234567890abcdef').severe, true);   // release-audit: allow（测试夹具，假值）
 assert.throws(() => assertSafeOutput('password: hunter2'), /隐私闸门拒绝/);
 assert.doesNotThrow(() => assertSafeOutput('今天看了个视频，挺好笑的'));
 

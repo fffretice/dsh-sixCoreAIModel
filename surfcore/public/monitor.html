@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>监控台</title>
+<title>角色监控台</title>
 <style>
   :root{color-scheme:dark}
   body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#0f1114;color:#e6e6e6}
@@ -23,6 +23,9 @@
   .big .l{font-size:11px;color:#8b919a}
   button{background:#2a6df4;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px;margin:4px 6px 0 0}
   button.ghost{background:#242830}
+  .group-menu{margin:6px 0 2px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+  .group-menu button{text-align:left;font-size:12px;padding:6px 10px;margin:0;min-width:220px}
+  .group-menu button .gid{color:#8b919a;font-size:11px}
   pre{background:#0d0f12;border:1px solid #23262b;border-radius:8px;padding:10px;font-size:11px;line-height:1.55;max-height:260px;overflow:auto;margin:0;white-space:pre-wrap}
   .diary{white-space:pre-wrap;font-size:13px;line-height:1.7;color:#cfd3d8;max-height:320px;overflow:auto}
   .muted{color:#7c828b;font-size:12px}
@@ -46,7 +49,7 @@
   })()
 </script>
 <header>
-  <h1>监控台</h1>
+  <h1>角色监控台</h1>
   <span class="dot" id="dot"></span><span class="muted" id="stateText">连接中…</span>
   <a id="roomLink" href="#" style="margin-left:auto;font-size:12px;color:#8b919a;text-decoration:none;border:1px solid #23262b;border-radius:999px;padding:3px 10px">去房间 →</a>
 </header>
@@ -79,6 +82,12 @@
     <div class="muted">平时主要聊：手办/模型、PCR、偶像大师</div>
   </section>
 
+  <section><h2>规则核心 <span class="muted" id="rulesSize" style="font-size:11px;font-weight:400"></span></h2>
+    <div class="muted" style="font-size:11px;margin-bottom:6px">红 = 从没用过 · 橙 = 超过 10 天没用到 · 按最后用到时间排</div>
+    <div id="ruleRows"></div>
+    <div class="muted" id="rulesHint" style="font-size:11px;margin-top:6px"></div>
+  </section>
+
   <section><h2>四大核心</h2>
     <button id="btnCores">打开 3D 核心图</button>
     <span class="muted" id="coresHint">放大能看到各核心里哪些要素在活跃</span>
@@ -94,7 +103,8 @@
 
   <section><h2>操作</h2>
     <button id="btnPause">暂停她在群里说话</button>
-    <button class="ghost" id="btnWakeGroup">叫她（群）</button>
+    <button class="ghost" id="btnWakeGroup">叫她（群）▾</button>
+    <div id="groupMenu" class="group-menu" hidden></div>
     <button class="ghost" id="btnWakePrivate">叫她（私聊）</button>
     <button class="ghost" id="btnPatron" style="border-color:#a855f7">今天加餐</button>
     <button class="ghost" id="btnSelfcheck">关闭每小时自检</button>
@@ -135,7 +145,7 @@
     <div class="diary" id="diary">（今天还没写）</div>
   </section>
 
-  <section><h2>助手和她的内心活动</h2>
+  <section><h2>助手和角色的内心活动</h2>
     <div id="talk" class="talk">—</div>
   </section>
 
@@ -149,6 +159,33 @@ const TOKEN = q.get('token') || '';
 const api = (p, opt={}) => fetch(p, { ...opt, headers: { 'x-console-token': TOKEN, ...(opt.body?{'Content-Type':'application/json'}:{}), ...(opt.headers||{}) } });
 const $ = (id) => document.getElementById(id);
 const sym = (t) => (t && t.symbol) || '¥';
+
+async function loadRules() {
+  try {
+    const d = await api('/api/monitor/rules').then((x) => x.json());
+    if (d.error) throw new Error(d.error);
+    $('rulesSize').textContent = `· ${d.chars}/${d.limit} 字符`;
+    const rows = (d.rules || []).slice().sort((a, b) => {
+      if (!a.lastUsedAt && b.lastUsedAt) return -1;
+      if (a.lastUsedAt && !b.lastUsedAt) return 1;
+      return (b.lastUsedAt || 0) - (a.lastUsedAt || 0);
+    });
+    $('ruleRows').innerHTML = rows.map((r) => {
+      const never = !r.lastUsedAt;
+      const stale = r.idleDays !== null && r.idleDays >= 10;
+      const color = never ? '#e26d6d' : stale ? '#f0a35f' : '#8b919a';
+      const when = never ? '从没用过' : (r.idleDays === 0 ? '今天用过' : `${r.idleDays} 天前`);
+      const sec = r.section === 'owner' ? '主人' : r.section === 'group' ? '群里' : '印象';
+      const text = String(r.text || '').slice(0, 46);
+      return `<div class="row"><span class="k" style="min-width:34px">${sec}</span><span class="v" style="color:${color};text-align:left;font-size:12px">${text} <span style="opacity:.55">· ${when}</span></span></div>`;
+    }).join('');
+    const never = rows.filter((r) => !r.lastUsedAt).length;
+    const pct = rows.length ? Math.round((never / rows.length) * 100) : 0;
+    $('rulesHint').textContent = `${rows.length} 条，${never} 条从没用过（${pct}%）；每天 0 点把 14 天没用的降级成「模糊印象」`;
+  } catch (e) {
+    $('rulesHint').textContent = '读不到：' + e.message;
+  }
+}
 
 async function tick() {
   try {
@@ -286,7 +323,32 @@ async function act(kind, payload) {
 }
 $('btnCores').onclick = () => window.open('/cores?token=' + encodeURIComponent(TOKEN), '_blank');
 $('btnPause').onclick = () => act('toggle-pause');
-$('btnWakeGroup').onclick = () => act('wake-group');
+// 叫她（群）：先选哪个群（2026-11-02）。原来只叫白名单第一个，另外两个群永远醒不来。
+let groupCache = null;
+$('btnWakeGroup').onclick = async () => {
+  const menu = $('groupMenu');
+  if (!menu.hidden) { menu.hidden = true; return; }
+  menu.innerHTML = '<span class="muted" style="font-size:11px">读群列表…</span>';
+  menu.hidden = false;
+  try {
+    if (!groupCache) {
+      const d = await api('/api/monitor/groups').then((x) => x.json());
+      if (d.error) throw new Error(d.error);
+      groupCache = Array.isArray(d.groups) ? d.groups : [];
+    }
+    if (!groupCache.length) { menu.innerHTML = '<span class="muted" style="font-size:11px">白名单里没有群</span>'; return; }
+    menu.innerHTML = '';
+    for (const g of groupCache) {
+      const b = document.createElement('button');
+      b.className = 'ghost';
+      b.innerHTML = `${g.name ? String(g.name).replace(/[<>&]/g, '') : '（未命名群）'} <span class="gid">${g.gid}</span>`;
+      b.onclick = () => { menu.hidden = true; act('wake-group', { group: g.gid }); };
+      menu.appendChild(b);
+    }
+  } catch (e) {
+    menu.innerHTML = `<span class="muted" style="font-size:11px">读取失败：${e.message}</span>`;
+  }
+};
 $('btnWakePrivate').onclick = () => act('wake-private');
 $('btnPatron').onclick = async () => {
   $('btnPatron').disabled = true;
@@ -314,6 +376,7 @@ $('btnSelfcheck').onclick = async () => {
   setTimeout(tick, 600);
 };
 tick(); setInterval(tick, 10000);
+loadRules(); setInterval(loadRules, 5 * 60 * 1000);
 </script>
 </body>
 </html>

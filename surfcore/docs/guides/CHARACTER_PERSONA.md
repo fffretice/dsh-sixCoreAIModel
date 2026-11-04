@@ -102,7 +102,7 @@
 插件启动时若还没有 `characters/current.json`：
 
 1. 找到旧人格卡（`persona.file` / `roles/角色卡.md` / `roles/*.md`）；
-2. 建一个角色（名字取人格卡标题，例如「小咪」）；
+2. 建一个角色（名字取人格卡标题，例如「角色」）；
 3. 复制 `~/.dsh/surfcore/memory/*`（全量 JSONL 硬链接）；
 4. 复制 `~/.dsh/surfcore/bili/*` 里的**行为文件**（不含 cookie/表情包/bin）；
 5. 复制 `repo/state` 里的 `bili-share-state.json` / `bili-share-history.json`（避免当天重发）；

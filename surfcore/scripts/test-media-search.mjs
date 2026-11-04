@@ -233,7 +233,7 @@ await test('resolveSearchApiKey 的优先级：config > env > DSH 凭据', async
     fs.writeFileSync(path.join(home, '.credentials.yaml'), [
       'version: 1',
       'refs:',
-      '  QQ_TEST_SEARCH_KEY: sk-from-dsh-credentials',   // release-audit: allow（测试夹具）
+      '  QQ_TEST_SEARCH_KEY: sk-from-dsh-credentials',   // release-audit: allow（测试夹具，假值）
       'records: {}',
       ''
     ].join('\n'));
@@ -241,7 +241,7 @@ await test('resolveSearchApiKey 的优先级：config > env > DSH 凭据', async
     delete process.env.QQ_TEST_SEARCH_KEY;
 
     assert.equal(resolveSearchApiKey({ apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }).source, 'dsh-credentials');
-    assert.equal(readDshCredential('QQ_TEST_SEARCH_KEY'), 'sk-from-dsh-credentials');   // release-audit: allow（测试夹具）
+    assert.equal(readDshCredential('QQ_TEST_SEARCH_KEY'), 'sk-from-dsh-credentials');   // release-audit: allow（测试夹具，假值）
 
     process.env.QQ_TEST_SEARCH_KEY = 'sk-from-env';
     assert.deepEqual(resolveSearchApiKey({ apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }), { key: 'sk-from-env', source: 'env' });
@@ -317,14 +317,14 @@ await test('deepseekSearch：没有 key 时报 NO_KEY；非 https 端点直接�
 
     const insecure = await deepseekSearch('测试', {
       provider: 'deepseek',
-      apiKey: 'sk-test-only-for-unit-test',   // release-audit: allow（测试夹具）
+      apiKey: 'sk-test-only-for-unit-test',
       baseURL: 'http://api.deepseek.com/anthropic/v1'
     }).catch((e) => e);
     assert.match(String(insecure?.message), /https/, 'API key 不允许发往 http 端点');
 
     const privateHost = await deepseekSearch('测试', {
       provider: 'deepseek',
-      apiKey: 'sk-test-only-for-unit-test',   // release-audit: allow（测试夹具）
+      apiKey: 'sk-test-only-for-unit-test',
       baseURL: 'https://127.0.0.1/anthropic/v1'
     }).catch((e) => e);
     assert.match(String(privateHost?.message), /内网|本机|禁止/, 'API key 不允许发往内网/本机端点');

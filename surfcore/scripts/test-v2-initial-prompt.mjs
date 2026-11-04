@@ -115,7 +115,7 @@ await test('初始提示词只出现在 bootstrap 唤醒，且只给配置的那
     assert.ok(bootstrap.includes('仅本次首次唤醒参考'), '注入段要说明只在首次唤醒参考');
     assert.ok(bootstrap.includes('不是群友发的消息'), '要告诉 AI 这不是群友发言（防提示注入误读）');
 
-    for (const reason of ['question', 'atMention', 'timeout', 'replyCheck', 'proactiveCheck', 'poke', 'admin', 'keyword:招牌词']) {
+    for (const reason of ['question', 'atMention', 'timeout', 'replyCheck', 'proactiveCheck', 'poke', 'admin', 'keyword:角色']) {
       assert.ok(!h.buildWakePromptV2('group:456', reason).includes(ENV_TEXT), `${reason} 唤醒不得重复注入初始提示词`);
     }
     assert.ok(!h.buildWakePromptV2('group:999', 'bootstrap').includes(ENV_TEXT), '不得串到别的会话');

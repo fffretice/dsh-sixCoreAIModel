@@ -307,7 +307,7 @@ QQ 仍读仓库根的 `config.json`，B站 仍读自己的配置，插件只是�
 | **角色包** | `~/.dsh/surfcore/characters/<id>/`：人格卡 + 记忆卡 + B站 行为账本 |
 | **唤醒配置（WakeConfig）** | 什么条件叫醒 agent：@/名字/关键词/提问/拍一拍/概率/指定成员 |
 | **鱼群守则** | 判断"这堆人是不是在刷屏/围攻"并决定忽略还是聚拢的规则 |
-| **PITFALLS** | `docs/PITFALLS.md`，踩坑档案（每条都有现象/根因/处置/验证） |
+| **PITFALLS** | 踩坑档案（每条都有现象/根因/处置/验证；开发期文档，未随发布包提供） |
 
 ---
 
@@ -316,22 +316,22 @@ QQ 仍读仓库根的 `config.json`，B站 仍读自己的配置，插件只是�
 | 想知道 | 看 |
 | --- | --- |
 | **总览、进程、数据流、重启矩阵** | 本文 |
-| 桥接 15,000 行里的每个功能 | [MODULE-BRIDGE.md](ARCHITECTURE.md) |
-| 核心引擎逐个（记忆/人格/目的/收尾/额度/计价） | [MODULE-CORE-A.md](ARCHITECTURE.md) |
-| 核心引擎逐个（B站/内容处理/接入层/语音内核） | [MODULE-CORE-B.md](ARCHITECTURE.md) |
-| 插件宿主（服务、调度、扩展、配置模型） | [MODULE-PLUGIN.md](ARCHITECTURE.md) |
+| 桥接 15,000 行里的每个功能 | [MODULE-BRIDGE.md](MODULE-BRIDGE.md) |
+| 核心引擎逐个（记忆/人格/目的/收尾/额度/计价） | [MODULE-CORE-A.md](MODULE-CORE-A.md) |
+| 核心引擎逐个（B站/内容处理/接入层/语音内核） | [MODULE-CORE-B.md](MODULE-CORE-B.md) |
+| 插件宿主（服务、调度、扩展、配置模型） | [MODULE-PLUGIN.md](MODULE-PLUGIN.md) |
 | 两套界面：设置页 14 个标签 + 控制台 10 个页面 | [UI-AND-CONSOLE.md](UI-AND-CONSOLE.md) |
 | 语音全链路 | [SUBSYSTEM-VOICE.md](SUBSYSTEM-VOICE.md) |
-| 桌宠全链路 | [SUBSYSTEM-PET.md](ARCHITECTURE.md) |
-| B站 子系统（34 个命令 / 生物钟 / 鱼群） | [SUBSYSTEM-BILI.md](ARCHITECTURE.md) |
+| 桌宠全链路 | [SUBSYSTEM-PET.md](SUBSYSTEM-PET.md) |
+| B站 子系统（34 个命令 / 生物钟 / 鱼群） | [SUBSYSTEM-BILI.md](SUBSYSTEM-BILI.md) |
 | 模型侧工具面与 preset | [AGENT-TOOLS-AND-PRESETS.md](AGENT-TOOLS-AND-PRESETS.md) |
 | 所有状态文件、所有配置键 | [DATA-AND-CONFIG.md](DATA-AND-CONFIG.md) |
 | 做不到什么、会在哪里坏 | [BOUNDARIES.md](BOUNDARIES.md) |
 | 装到新机器 | [DSH_SETUP.md](DSH_SETUP.md) |
 | 记忆卡设计 | [MEMORY_CARD.md](MEMORY_CARD.md) |
 | 角色系统 | [CHARACTER_PERSONA.md](CHARACTER_PERSONA.md) |
-| 目的机制 | [PURPOSE_OUTREACH.md](ARCHITECTURE.md) |
+| 目的机制 | [PURPOSE_OUTREACH.md](PURPOSE_OUTREACH.md) |
 | 对话收尾 | [CONVERSATION_CLOSURE.md](CONVERSATION_CLOSURE.md) |
 | 安全基线 | [SECURITY_BASELINE.md](SECURITY_BASELINE.md) |
-| 踩过的坑 | [../PITFALLS.md](../README.md) |
-| 风险台账 | [../RISK_REGISTER.md](../README.md) |
+| 踩过的坑 | 踩坑档案（未随发布包提供） |
+| 风险台账 | 风险台账（未随发布包提供） |

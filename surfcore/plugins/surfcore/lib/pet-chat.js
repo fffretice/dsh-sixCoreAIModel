@@ -33,7 +33,7 @@ const MAX_HISTORY_MESSAGES = 200;
 const EVENT_LIMIT = 200;
 
 /**
- * 身份守卫（2026-10-29）：声音借了可可萝的声线，但她**不是**可可萝。
+ * 身份守卫（2026-10-29）：借了别人声线时，她**不是**那个角色。
  * 提示词里有规则，这里兜底——模型偶尔会顺着声音来源自称。
  */
 const OTHER_CHARACTER_NAMES = [];   // 需要时在 config.json → socialV2.identityGuard.forbiddenNames 里配

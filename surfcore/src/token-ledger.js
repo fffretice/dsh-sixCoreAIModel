@@ -103,6 +103,10 @@ export function createTokenLedger({
   log = () => {},
   priceTable = DEFAULT_PRICE_TABLE,
   resolveKey,
+  // 2026-11-03：每次唤醒的「原因」（drive / keyword / probability / manual / replyCheck …）。
+  // 之前账本只知道是哪个会话，不知道这一轮是**她自己醒的**还是**被我叫醒的**——
+  // 于是调试/测试的消耗全记在她头上，一天的额度被顶爆过一次。
+  reasonOf,
   maxLines = 20000,
   now = () => Date.now()
 } = {}) {
@@ -182,7 +186,8 @@ export function createTokenLedger({
         t,
         model: record.model,
         provider: record.provider,
-        buckets
+        buckets,
+        reason: String(record.reason || ''),
       });
       if (t > (sessionSeen.get(sid) ?? 0)) sessionSeen.set(sid, t);
       return true;
@@ -209,7 +214,10 @@ export function createTokenLedger({
         retry,
         model: record.model,
         provider: record.provider,
-        buckets
+        buckets,
+        // 重放时把 reason 带回来，否则重启后历史轮次全变成「无 reason」，
+        // 豁免统计就只对当天的、重启后的轮次有效。
+        reason: String(record.reason || ''),
       });
       const axis = retryAxis.get(sid);
       if (!axis || axis.seq <= seq) retryAxis.set(sid, { turn, step, retry, seq });
@@ -433,9 +441,14 @@ export function createTokenLedger({
       provider: eventProvider ?? prev?.provider,
       b: buckets
     };
+    try {
+      const r = typeof reasonOf === 'function' ? reasonOf(sessionId) : '';
+      if (r) record.reason = String(r).slice(0, 24);
+    } catch {}
     samples.set(sk, {
       sessionId, key, seq, t, turn, step, retry,
-      model: record.model, provider: record.provider, buckets
+      model: record.model, provider: record.provider, buckets,
+      reason: record.reason || '',
     });
     if (t > (sessionSeen.get(sessionId) ?? 0)) sessionSeen.set(sessionId, t);
     lastIngestAt = now();
@@ -656,7 +669,7 @@ export function createTokenLedger({
    * @param {{since?:number, categoryOf?:(key:string)=>string}} opts
    * @returns {{since:number, qq:{cost:number,tokens:number}, other:{cost:number,tokens:number}, total:{cost:number,tokens:number}, samples:number}}
    */
-  function dailyUsage({ since, categoryOf } = {}) {
+  function dailyUsage({ since, categoryOf, excludeReasons = [] } = {}) {
     const from = Number.isFinite(Number(since)) ? Number(since) : 0;
     const out = {
       since: from,
@@ -665,8 +678,10 @@ export function createTokenLedger({
       total: { cost: 0, tokens: 0 },
       samples: 0
     };
+    const skip = new Set(excludeReasons.map(String));
     for (const s of samples.values()) {
       if (s.t < from) continue;
+      if (skip.size && s.reason && skip.has(String(s.reason))) continue;
       const key = keyOf(s.sessionId) ?? s.key ?? '';
       const category = typeof categoryOf === 'function'
         ? String(categoryOf(key) || 'other')

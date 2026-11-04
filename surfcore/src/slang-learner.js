@@ -221,10 +221,19 @@ export function buildSlangContext(entries, max = 8, mode = 'use') {
     .sort((a, b) => (b.count || 0) - (a.count || 0))
     .slice(0, Math.max(1, Math.min(30, Number(max) || 8)));
   if (!confirmed.length) return '';
+  // 2026-11-04：库里 639 条有 140 条共用同一句「只在这个群的语境里用…」，
+  // 每条都带一遍只是噪音（一段 prompt 能重复十几遍）。同一个「语境」出现超过 2 次，
+  // 说明它不是这个词的特点，省略。
+  const usageCount = new Map();
+  for (const e of confirmed) {
+    const u = String(e.usage || '').trim();
+    if (u) usageCount.set(u, (usageCount.get(u) || 0) + 1);
+  }
   const lines = confirmed.map((e) => {
     const clean = (s) => escapeLearnerText(String(s ?? '').replace(/\[CQ:/gi, '[CQ：'));
     let line = `- ${clean(e.content)}：${clean(e.meaning)}`;
-    if (e.usage) line += `（语境：${clean(e.usage)}）`;
+    const usage = String(e.usage || '').trim();
+    if (usage && (usageCount.get(usage) || 0) <= 2) line += `（语境：${clean(usage)}）`;
     if (e.example) line += `（像这么说：${clean(e.example)}）`;
     return line;
   });
@@ -232,6 +241,141 @@ export function buildSlangContext(entries, max = 8, mode = 'use') {
     return `【群聊黑话 · 只看懂别用】下面这些你**看得懂就行**，别主动说：听不懂的时候就靠它们理解，自己聊天不用（用了会显得刻意）。\n${lines.join('\n')}`;
   }
   return `【群聊黑话表】群里已确认/常用的网络用语和梗（按出现次数排序）。这些条是让你**自己看懂**的：聊天时顺着语境直接用，不要解释、不要复述含义或用法、不要写成条目；群里没人问就别讲。\n${lines.join('\n')}`;
+}
+
+// 高频聊天词：这些东西反复出现也说明不了什么，别让它们把窗口「撑出候选」。
+// 不追求穷尽——预筛只需要「大概率没有黑话」时拦住，宁可漏掉低频新词，也别每次都白跑一个 LLM 回合。
+const SLANG_STOPWORDS = new Set([
+  '今天', '明天', '昨天', '现在', '什么', '怎么', '为什么', '可以', '但是', '因为', '所以', '如果',
+  '就是', '这个', '那个', '我们', '你们', '他们', '自己', '知道', '觉得', '真的', '其实', '已经',
+  '还是', '一个', '两个', '时候', '东西', '事情', '问题', '感觉', '有点', '不是', '没有', '这样',
+  '那样', '然后', '而且', '或者', '虽然', '不过', '应该', '可能', '需要', '希望', '喜欢', '好看',
+  '好玩', '可爱', '笑死', '哈哈', '呵呵', '嘿嘿', '嘻嘻', '谢谢', '抱歉', '对不起', '没关系',
+  '不知道', '怎么办', '怎么样', '是不是', '有没有', '要不要', '能不能', '会不会', '可不可以',
+  '等一下', '等等', '我去', '也是', '都是', '还有', '只有', '只是', '但是', '可是', '于是',
+  '以后', '以前', '一边', '一样', '一直', '一下', '一点', '一些', '这么', '那么', '多少',
+  '几个', '确实', '反正', '本来', '居然', '竟然', '果然', '当然', '突然', '忽然', '马上',
+  '刚刚', '刚才', '今晚', '晚安', '早安', '中午', '下午', '晚上', '早上', '周末', '星期',
+  '时间', '地方', '家里', '公司', '学校', '手机', '电脑', '游戏', '比赛', '视频', '图片',
+  '表情', '消息', '群主', '管理', '大家', '各位', '兄弟', '姐妹', '老板', '老师', '同学',
+  '朋友', '真的', '好像', '应该', '肯定', '一定', '非常', '特别', '比较', '稍微', '终于',
+  '起来', '出来', '过来', '下来', '回来', '进去', '回去', '上去', '下去', '看到', '看到',
+  '听说', '告诉', '回答', '帮忙', '帮忙', '谢谢', '没问题', '有点', '一阵', '一顿', '一起',
+]);
+
+const SLANG_COMMON_ASCII = new Set([
+  'the', 'and', 'you', 'for', 'are', 'but', 'not', 'with', 'this', 'that', 'have', 'from', 'will',
+  'can', 'all', 'any', 'how', 'what', 'when', 'where', 'who', 'why', 'yes', 'ok', 'okk', 'okay',
+  'emm', 'emmm', 'enn', 'hh', 'hhh', 'haha', 'lol', 'lmao', 'wtf', 'omg', 'pls', 'thx', 'ty',
+  'gg', 'wp', 'bro', 'dude', 'wow', 'oh', 'ah', 'uh', 'hmm', 'mm', 'nb',
+]);
+
+/**
+ * 黑话窗口的本地预筛（2026-11-03，纯规则、不花 token）。
+ *
+ * 为什么要它：桥接每攒够 10 条消息就起一个 LLM 回合问「有没有新黑话」，
+ * 今天 63 次回答「没有」——每次约 ¥0.031，白烧 ¥1.95。绝大多数窗口就是普通聊天，
+ * 本地看一眼就能判断「这堆话里根本没有像黑话的东西」。
+ *
+ * 判定只用三个宽信号（宁可多放行，不漏掉明显候选）：
+ *   1. 有个 2~8 字的词在**不同消息**里出现了 ≥2 次，且不在已知库里；
+ *   2. 有 2~6 位全大写/全小写的字母缩写（拼音缩写是最典型的黑话形态）；
+ *   3. 有引号/书名号包着的短词（群友在讨论某个说法）。
+ *
+ * 注意：它只是「值不值得起回合」的预判，不判断具体是什么词——那是 LLM 的活。
+ * @param {Array<{text?:string,sender?:string}>} messages
+ * @param {{known?:Array<any>, minRepeat?:number}} opts
+ */
+export function screenSlangWindow(messages, { known = [], minRepeat = 2 } = {}) {
+  const texts = (Array.isArray(messages) ? messages : [])
+    .map((m) => String(m?.text ?? '').trim())
+    .filter(Boolean);
+  if (!texts.length) return { worth: false, reason: 'empty' };
+  const knownSet = new Set(
+    (Array.isArray(known) ? known : [])
+      .map((x) => (typeof x === 'string' ? x : x?.content))
+      .filter(Boolean)
+      .map((x) => String(x).trim())
+  );
+  const totalChars = texts.join('').length;
+  if (totalChars < 30) return { worth: false, reason: 'too-short', chars: totalChars };
+
+  const seg = new Intl.Segmenter('zh', { granularity: 'word' });
+  // 自己的名字/群友昵称反复出现很正常，不该算「可疑新词」——先收进本地停用集合。
+  // 群友昵称在 10 条窗口里最多出现一两次，用 sender 字段拿到就够了。
+  const localStop = new Set(SLANG_STOPWORDS);
+  for (const m of Array.isArray(messages) ? messages : []) {
+    const s = String(m?.sender ?? '').trim();
+    if (s) localStop.add(s);
+  }
+  for (const fixed of ['AAA', '角色', '招牌词', '神秘鱼', '招牌词', 'DeepSeek', 'deepseek', 'dsh', 'DSH']) localStop.add(fixed);
+  const urlLike = /(?:https?:\/\/|www\.|b23\.tv|bilibili\.com|\b[A-Za-z0-9]+\.(?:tv|com|cn|net|org)\b)/i;
+  // URL/链接先整段剔掉：Segmenter 会把 https、b23、BV 号切成「词」，它们不是黑话。
+  const cleanText = (t) => String(t ?? '').replace(/https?:\/\/\S+/gi, ' ').replace(/\b(?:www\.)?[A-Za-z0-9-]+\.(?:tv|com|cn|net|org|io)\S*/gi, ' ');
+
+  const counts = new Map();
+  const sendersByWord = new Map();
+  for (const m of Array.isArray(messages) ? messages : []) {
+    const text = cleanText(m?.text);
+    if (!text.trim()) continue;
+    const sender = String(m?.sender ?? '');
+    const seen = new Set();
+    for (const part of seg.segment(text)) {
+      if (!part.isWordLike) continue;
+      const word = String(part.segment || '').trim();
+      if (word.length < 2 || word.length > 6) continue;
+      if (/^[\d\s\p{P}\p{S}]+$/u.test(word)) continue;
+      if (urlLike.test(word)) continue;
+      if (knownSet.has(word) || localStop.has(word)) continue;
+      if (/^[a-z]+$/i.test(word) && SLANG_COMMON_ASCII.has(word.toLowerCase())) continue;
+      if (seen.has(word)) continue;
+      seen.add(word);
+      counts.set(word, (counts.get(word) || 0) + 1);
+      if (sender) {
+        if (!sendersByWord.has(word)) sendersByWord.set(word, new Set());
+        sendersByWord.get(word).add(sender);
+      }
+    }
+  }
+  const minRepeatN = Math.max(2, Number(minRepeat) || 2);
+  const repeated = [...counts.entries()]
+    // 「一个人自己重复」不算黑话（口头禅也可能，但噪声太大）；
+    // 至少两个不同的人用过，或者同一人用了 3 次以上，才值得让 LLM 看一眼。
+    .filter(([w, n]) => n >= minRepeatN && ((sendersByWord.get(w)?.size || 0) >= 2 || n >= 3))
+    .map(([w, n]) => ({ word: w, n, senders: sendersByWord.get(w)?.size || 0 }))
+    .sort((a, b) => b.senders - a.senders || b.n - a.n)
+    .slice(0, 5);
+
+  const acronyms = [];
+  for (const text of texts) {
+    for (const m of cleanText(text).matchAll(/(?<![A-Za-z])[A-Za-z]{2,6}(?![A-Za-z])/g)) {
+      const w = m[0];
+      if (SLANG_COMMON_ASCII.has(w.toLowerCase())) continue;
+      if (knownSet.has(w) || localStop.has(w) || urlLike.test(w)) continue;
+      if (w.length <= 3 && !/[A-Z]/.test(w)) continue; // 两三个小写字母多半是缩写词/单位，不追
+      acronyms.push(w);
+    }
+  }
+
+  const quoted = [];
+  for (const text of texts) {
+    for (const m of text.matchAll(/[「『“"《]([^」』”"》]{2,8})[」』”"》]/g)) {
+      const w = m[1].trim();
+      if (w && !knownSet.has(w)) quoted.push(w);
+    }
+  }
+
+  const uniqAcronyms = [...new Set(acronyms)].slice(0, 5);
+  const uniqQuoted = [...new Set(quoted)].slice(0, 5);
+  const worth = repeated.length > 0 || uniqAcronyms.length > 0 || uniqQuoted.length > 0;
+  return {
+    worth,
+    reason: worth ? 'candidate' : 'nothing',
+    sample: [...repeated.map((r) => r.word), ...uniqAcronyms, ...uniqQuoted].slice(0, 8),
+    repeated: repeated.length,
+    acronyms: uniqAcronyms.length,
+    quoted: uniqQuoted.length,
+  };
 }
 
 export function buildExtractionPrompt(messages) {

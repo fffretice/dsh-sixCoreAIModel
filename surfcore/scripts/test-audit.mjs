@@ -63,7 +63,7 @@ const tests = [
   // 平台启动开关：QQ/B站 各自「是否启动」的唯一真相 + 旧 bridge.autoStart 迁移
   // （2026-10-24 用户要求；只碰临时 DSH_HOME，不启停真实桥接）。
   'test-platform-start.mjs',
-  // B站 会话权限：workspace-write 在 C:\Users\Mieksido 起不了命令 → 自动切 danger-full-access。   // release-audit: allow（测试夹具）
+  // B站 会话权限：workspace-write 在 C:\Users\<you> 起不了命令 → 自动切 danger-full-access。
   'test-scheduler-permission.mjs',
   'test-token-economy.mjs', 'test-qq-model-view.mjs', 'test-qq-preset-contract.mjs',
   'test-reply-wait.mjs', 'test-preset-prompt.mjs', 'test-role-card.mjs',

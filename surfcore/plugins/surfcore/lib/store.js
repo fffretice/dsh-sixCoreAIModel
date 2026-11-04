@@ -148,7 +148,7 @@ export const DEFAULT_UNIFIED = {
     components: [],
     // 构建产物型组件（桌宠）走版本清单：发版时把 version.json 放到 Release 资产里。
     // 默认指向官方 Release 的 latest 直链（无 API 限流）；自建发布源就改这里。
-    pet: { versionUrl: 'https://github.com/Mieksido/surfpet/releases/latest/download/version.json' },
+    pet: { versionUrl: 'https://github.com/your-github/surfpet/releases/latest/download/version.json' },
     voice: { localVersionUrl: '', cloudVersionUrl: '' },
   },
 };
