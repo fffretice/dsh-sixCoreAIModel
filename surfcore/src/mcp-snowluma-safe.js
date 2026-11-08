@@ -607,6 +607,24 @@ server.tool(
 );
 
 server.tool(
+  'qq_style_review',
+  '看一眼自己最近怎么说话（只读）：句长和群友比、哪种说法几次里有人接、最近说过的「先否定再定义」的句子。写日记反思的时候看一眼比较合适；平时想看也行，不看也行。',
+  {
+    key: z.string().describe('会话 key，一般用 private:你的 QQ 号'),
+    token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）')
+  },
+  async ({ key, token }) => {
+    try {
+      const data = await agentApi(`/api/socialV2/style-review?key=${encodeURIComponent(key)}`, { headers: { 'x-agent-token': token } });
+      if (data && data.ok === false) return { content: [{ type: 'text', text: String(data.error || '暂时没有可看的') }] };
+      return { content: [{ type: 'text', text: String(data?.text || '暂时没有可看的') }] };
+    } catch (error) {
+      return { content: [{ type: 'text', text: `看说话样子失败：${error?.message ?? error}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
   'qq_social_state',
   '查看指定会话的二代仿真状态：WakeConfig、未读数、上次唤醒原因、上次发言时间等（只读）。',
   { key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'), token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）') },
@@ -1012,6 +1030,106 @@ server.tool(
   }
 );
 
+// ── 记忆主题层工具（只读，二代仿真模式；对应 bridge 的 /api/socialV2/memory-*） ──
+// 三个工具共用一个开关 socialV2.tools.memoryTopics：它们是同一套「先看目录、再读正文、
+// 找不到就搜」的入口，分开开关只会让模型看到半套工具（有目录却读不到内容）。
+// 外层 if 在**注册期**就把工具整个摘掉（和本文件其它开关一致），关掉后连描述都不占 token。
+if (cfg.socialV2?.tools?.memoryTopics !== false) {
+  server.tool(
+    'qq_memory_topics',
+    '列出你记忆里的主题（像目录一样）。每条含主题名、事实条数与最近日期；想知道某个主题的细节，再用 qq_memory_topic 读全文。',
+    {
+      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）')
+    },
+    async ({ key, token }) => {
+      try {
+        const q = new URLSearchParams({ key });
+        const data = await agentApi(`/api/socialV2/memory-topics?${q.toString()}`, {
+          headers: { 'x-agent-token': token },
+          timeoutMs: 20000
+        });
+        if (data?.ok !== true) {
+          return { content: [{ type: 'text', text: `读取记忆主题失败：${errorText(data?.error, '桥接未返回 ok')}` }], isError: true };
+        }
+        const topics = Array.isArray(data.topics) ? data.topics : [];
+        if (!topics.length) return { content: [{ type: 'text', text: '还没有主题' }] };
+        const lines = topics.map((t) => {
+          const name = String(t?.name ?? '').trim() || '未命名';
+          const count = Number(t?.facts) || 0;
+          const latest = String(t?.latest ?? '').trim();
+          // latest 为空说明这个主题还没有带日期的事实行，不硬凑一个「最近 」出来。
+          return latest ? `- ${name}（${count} 条，最近 ${latest}）` : `- ${name}（${count} 条）`;
+        });
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `读取记忆主题失败：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    'qq_memory_topic',
+    '读某一个主题的完整内容（markdown 正文，带日期的事实行）。主题名从 qq_memory_topics 的返回里拿。',
+    {
+      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+      name: z.string().describe('主题名（来自 qq_memory_topics 的返回）')
+    },
+    async ({ key, token, name }) => {
+      try {
+        const q = new URLSearchParams({ key, name: String(name) });
+        const data = await agentApi(`/api/socialV2/memory-topic?${q.toString()}`, {
+          headers: { 'x-agent-token': token },
+          timeoutMs: 20000
+        });
+        if (data?.ok !== true) {
+          return { content: [{ type: 'text', text: `读取主题失败：${errorText(data?.error, '桥接未返回 ok')}` }], isError: true };
+        }
+        // 原样返回文件正文（连结尾换行一起），不在这里改写内容；只在判断「空」时用 trim。
+        const text = typeof data.text === 'string' ? data.text : '';
+        if (!text.trim()) {
+          return { content: [{ type: 'text', text: `主题「${String(name)}」没有内容（可能还没建好，先用 qq_memory_topics 看看有哪些主题）` }], isError: true };
+        }
+        return { content: [{ type: 'text', text }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `读取主题失败：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    'qq_memory_search',
+    '在所有记忆主题里搜关键词（只读），返回命中的主题和那一行事实。想找「以前是不是记过这件事」但记不清在哪个主题时用。',
+    {
+      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+      q: z.string().describe('关键词')
+    },
+    async ({ key, token, q }) => {
+      try {
+        const args = new URLSearchParams({ key, q: String(q) });
+        const data = await agentApi(`/api/socialV2/memory-search?${args.toString()}`, {
+          headers: { 'x-agent-token': token },
+          timeoutMs: 20000
+        });
+        if (data?.ok !== true) {
+          return { content: [{ type: 'text', text: `搜记忆失败：${errorText(data?.error, '桥接未返回 ok')}` }], isError: true };
+        }
+        const hits = Array.isArray(data.hits) ? data.hits : [];
+        if (!hits.length) return { content: [{ type: 'text', text: `没有找到包含「${String(q)}」的内容` }] };
+        const lines = hits.map((hit) => {
+          const topic = String(hit?.topic ?? '').trim() || '未命名';
+          return `- [${topic}] ${String(hit?.line ?? '').trim()}`;
+        });
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `搜记忆失败：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+}
+
 server.tool(
   'qq_slang_query',
   '查看当前已确认的群聊黑话/梗/网络表达（只读）。返回已确认词条列表和格式化黑话表；遇到不熟悉的词可先查这里，再决定是否搜索/使用。',
@@ -1296,7 +1414,7 @@ server.tool(
 server.tool(
   'qq_read_diary',
   '翻你自己的日记本。不传 date 就是今天，传 YYYY-MM-DD 就翻那一天；同时告诉你最近写过哪几天。'
-    + '什么时候用：主人问起以前的事、你想回忆某天的心情、聊到某个话题想看看当时怎么想的。'
+    + '什么时候用：老大问起以前的事、你想回忆某天的心情、聊到某个话题想看看当时怎么想的。'
     + '日记是你自己写的，别当成别人的记录复述——可以自然说「我那天写……」；记不清就翻，别编。',
   {
     key: z.string().describe('会话 key'),
@@ -1320,7 +1438,7 @@ server.tool(
 
 server.tool(
   'qq_create_task',
-  '你心里想让主人做点什么，就派给他——早点睡、记得吃饭、别老坐着不动、周末出去走走。'
+  '你心里想让老大做点什么，就派给他——早点睡、记得吃饭、别老坐着不动、周末出去走走。'
     + '用你自己的话说，别用系统口吻（「去倒杯水」比「建议您补充水分」好）。'
     + '一次只说一件，别连着派；你手上最多三件没完成的，满了就先别加。'
     + '他接了才算数，别硬塞；派完可以在聊天里提一嘴，但别催。'
@@ -1348,7 +1466,7 @@ server.tool(
 
 server.tool(
   'qq_complete_task',
-  '主人真去做了你派的那件事，把它标成完成（id 从 qq_create_task 的返回或 qq_list_tasks 里拿）。'
+  '老大真去做了你派的那件事，把它标成完成（id 从 qq_create_task 的返回或 qq_list_tasks 里拿）。'
     + '什么时候用：他真的去倒水了、真的早睡了、真的歇了一会儿。'
     + '别虚报——他没做就别标，那是自己骗自己；标了也不会有谁夸你。',
   {
@@ -1467,7 +1585,7 @@ server.tool(
 
 server.tool(
   'qq_set_nickname',
-  '改自己的 QQ 昵称。**必须先问过主人、并且他明确同意了才能调用**；没问过不要调。改完不用解释流程，说一句「换好了」就行。',
+  '改自己的 QQ 昵称。**必须先问过老大、并且他明确同意了才能调用**；没问过不要调。改完不用解释流程，说一句「换好了」就行。',
   {
     key: z.string().describe('会话 key'),
     token: z.string().describe('会话令牌'),
@@ -1490,7 +1608,7 @@ server.tool(
 
 server.tool(
   'qq_set_avatar',
-  '改自己的 QQ 头像。**必须先问过主人、并且他明确同意了才能调用**。只接受图片 URL（本地文件传不了）。改完说一句「换好了」。',
+  '改自己的 QQ 头像。**必须先问过老大、并且他明确同意了才能调用**。只接受图片 URL（本地文件传不了）。改完说一句「换好了」。',
   {
     key: z.string().describe('会话 key'),
     token: z.string().describe('会话令牌'),
@@ -1602,6 +1720,37 @@ if (cfg.socialV2?.sticker?.enabled !== false && cfg.socialV2?.tools?.sendSticker
   );
 }
 
+if (cfg.socialV2?.tools?.sendScreenshot !== false) {
+  server.tool(
+    'qq_send_screenshot',
+    '打开一个网页、截图，并把截图作为图片消息发到当前会话。适合把活动页、公告、表格、新闻整页发出来；'
+      + '截图是服务器端 Chrome 生成的 PNG，不经过你手上。可以同时给 message（≤120 字），图在上、文字在下。'
+      + '只截 http/https 公网页面；页面里的广告也会一起截进去，尽量选内容页。',
+    {
+      key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+      url: z.string().describe('要截图的网页地址（http/https）'),
+      message: z.string().optional().describe('可选，≤120 字的一句话，跟图同一条发出'),
+      width: z.number().optional().describe('宽度像素，默认 1280（范围 640–1600）'),
+      height: z.number().optional().describe('高度像素，默认 1800（范围 800–5000）'),
+      fullPage: z.boolean().optional().describe('是否按整页高度截图（页面很长时会截到 5000px）')
+    },
+    async ({ key, token, url, message, width, height, fullPage }) => {
+      try {
+        const data = await agentApi('/api/socialV2/send-screenshot', {
+          method: 'POST',
+          body: JSON.stringify({ key, url: String(url), message, width, height, fullPage }),
+          headers: { 'x-agent-token': token },
+          timeoutMs: 120000
+        });
+        return { content: [{ type: 'text', text: serializeModelData(data) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `网页截图失败：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+}
+
 if (cfg.socialV2?.sticker?.enabled !== false && cfg.socialV2?.tools?.collectSticker !== false) {
   server.tool(
     'qq_collect_sticker',
@@ -1690,7 +1839,7 @@ if (cfg.socialV2?.voice?.enabled !== false && cfg.socialV2?.tools?.sendVoice !==
 if (cfg.socialV2?.tools?.getSelfImage !== false) {
   server.tool(
     'qq_get_self_image',
-    '查看你自己的默认 Q 版形象图片（DeepSeek 角色形象）。当你被问“你长什么样/发张自拍/你是什么形象”时，可以调用这个工具看自己的样子；返回的图片会直接进入你的视觉上下文。',
+    '查看你自己现在的 QQ 头像（就是别人在群里看到的那张）。想确认“这张图是不是我 / 我长什么样 / 头像换没换”时用它，返回的图片会直接进入你的视觉上下文；如果返回的是默认 Q 版形象，说明当前头像取不到。',
     {
       key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
       token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）')
@@ -1704,7 +1853,7 @@ if (cfg.socialV2?.tools?.getSelfImage !== false) {
         }
         return {
           content: [
-            { type: 'text', text: '这是你的默认 Q 版形象：' },
+            { type: 'text', text: `${String(data?.hint || '这是你现在的头像')}：` },
             { type: 'image', mimeType: data.image.mimeType, data: data.image.data }
           ]
         };

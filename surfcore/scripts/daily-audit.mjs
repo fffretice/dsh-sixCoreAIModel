@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 每日体检（2026-10-31 主人要求：每天 0 点整体排查一次）
+ * 每日体检（2026-10-31 老大要求：每天 0 点整体排查一次）
  *
  * 只读，不动任何服务。输出一份 markdown 报告到 state/daily-audit/YYYY-MM-DD.md。
  * 目的：每天改那么多东西，问题会慢慢攒起来，趁没发作的时候先看一眼。
@@ -166,7 +166,7 @@ if (ledger && ledger.items) {
   const bad = short.length + frag.length;
   const pct = items.length ? Math.round((bad / items.length) * 100) : 0;
   add(bad > items.length * 0.3 ? 'warn' : 'ok', '学习账本',
-    `${items.length} 条（${byOwner} 条主人教的）· 主题过短 ${short.length} · 像半句话 ${frag.length}（${pct}%）`);
+    `${items.length} 条（${byOwner} 条老大教的）· 主题过短 ${short.length} · 像半句话 ${frag.length}（${pct}%）`);
   if (bad > items.length * 0.3) {
     add('warn', '学习账本', '提取逻辑把聊天半句当主题了', '应收紧到祈使句/规则句；待改：learn-ledger 的 topic 抽取');
   }
@@ -174,7 +174,7 @@ if (ledger && ledger.items) {
 
 // ── 11. DSH 会话目录一致性 ───────────────────────────
 try {
-  const out = execFileSync('/opt/homebrew/opt/node@22/bin/node', [path.join(SURF, 'scripts', 'check-session-integrity.mjs')],
+  const out = execFileSync(process.execPath, [path.join(SURF, 'scripts', 'check-session-integrity.mjs')],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 60000 });
   const bad = (out.match(/项目目录与头部 cwd 不符/g) || []).length;
   add(bad ? 'warn' : 'ok', '会话目录', bad ? `${bad} 个会话的 workspace 路径不一致` : '一致');

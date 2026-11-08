@@ -156,7 +156,7 @@
         "recommendedSleepMaxMs": 7200000,
         "recommendedProbability": 0,
         "recommendedKeywords": [
-          "招牌词",
+          "鲸鱼",
           "DeepSeek",
           "测试"
         ],
@@ -275,7 +275,7 @@
         "recommendedSleepMaxMs": 7200000,
         "recommendedProbability": 0,
         "recommendedKeywords": [
-          "招牌词",
+          "鲸鱼",
           "DeepSeek",
           "测试"
         ],
@@ -386,7 +386,7 @@
       "longGapMinMs": 2500,
       "longGapMaxMs": 5000,
       "mustReplyKeywords": [
-        "招牌词",
+        "鲸鱼",
         "测试"
       ],
       "proactiveEnabled": true,

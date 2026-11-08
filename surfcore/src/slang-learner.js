@@ -79,6 +79,14 @@ export function normalizeSlangEntry(raw) {
         : ev))
       : [],
     lastInferenceCount: Math.max(0, Number(entry.lastInferenceCount) || 0),
+    // 2026-11-07：她搜过的词 → 摆给她看 → 她自己认。这几个标记必须落盘，
+    // 否则「建议过」「谁认的」「她自己的用法」每次保存都会被丢掉。
+    suggestedAt: Math.max(0, Number(entry.suggestedAt) || 0),
+    confirmedAt: Math.max(0, Number(entry.confirmedAt) || 0),
+    confirmedBy: entry.confirmedBy === 'self' ? 'self' : '',
+    selfUsage: clip(entry.selfUsage, SLANG_FIELD_MAX),
+    rejectedAt: Math.max(0, Number(entry.rejectedAt) || 0),
+    rejectedBy: entry.rejectedBy === 'self' ? 'self' : '',
     createdAt: String(entry.createdAt || nowIso()),
     updatedAt: String(entry.updatedAt || nowIso()),
   };

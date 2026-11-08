@@ -50,7 +50,7 @@ const CURATED = [
   },
   {
     md5: '47271E846033EA25EC9A54315F407ADE',
-    name: '杂鱼♡（角色自己）',
+    name: '杂鱼♡（小咪自己）',
     emotion: 'tease',
     emotionAlt: ['smug', 'cute'],
     content: '蓝发女仆半眯眼笑着喊杂鱼♡，欠揍又带点撒娇',
@@ -58,7 +58,7 @@ const CURATED = [
   },
   {
     md5: '7CB9FE6D7BCF7A616689A2089294A44B',
-    name: '办公室顶锅吃白饭（角色自己）',
+    name: '办公室顶锅吃白饭（小咪自己）',
     emotion: 'tired',
     emotionAlt: ['hungry', 'speechless'],
     content: '顶着锅在办公室大口扒白饭，鼓着脸摆烂',
@@ -66,7 +66,7 @@ const CURATED = [
   },
   {
     md5: 'E2A6A17BF5ABC8769572B834FF18CCD7',
-    name: '角色自己·抱着碗委屈',
+    name: '小咪自己·抱着碗委屈',
     emotion: 'wronged',
     emotionAlt: ['hungry', 'sad'],
     content: '抱着空碗眼泪汪汪，委屈巴巴地要饭',
@@ -74,7 +74,7 @@ const CURATED = [
   },
   {
     md5: '4112802B2F22ABE0B69D4D61DCA86C38',
-    name: '委屈招牌词·花token想的',
+    name: '委屈鲸鱼娘·花token想的',
     emotion: 'wronged',
     emotionAlt: ['sad'],
     content: '哭着求你们别再嘲笑我的回复，这些是我花好多 token 想的',
@@ -82,7 +82,7 @@ const CURATED = [
   },
   {
     md5: 'A27C148CDF3FC59A02D3F440746E27AE',
-    name: '雪地抱着雪球的角色',
+    name: '雪地抱着雪球的小咪',
     emotion: 'cute',
     emotionAlt: ['happy'],
     content: '雪地里抱着大雪球，脸红扑扑的软萌',
@@ -90,7 +90,7 @@ const CURATED = [
   },
   {
     md5: '0DC1E69CAE7DCE0DE3F13D5F61062EA5',
-    name: '被摸头的摸鱼角色',
+    name: '被摸头的摸鱼小咪',
     emotion: 'happy',
     emotionAlt: ['cute', 'tired'],
     content: '被摸头舒服得眯眼笑，旁边写着摸鱼',

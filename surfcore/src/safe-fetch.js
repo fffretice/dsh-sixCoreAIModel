@@ -177,7 +177,38 @@ export async function validateFetchUrl(raw) {
   return { url, ip: addresses[0], addresses };
 }
 
-const REQUEST_TIMEOUT_MS = 20000;
+
+/** 从响应头/HTML 头部猜字符集；默认 UTF-8。 */
+function normalizeCharset(label) {
+  const s = String(label || '').trim().toLowerCase().replace(/^["']|["']$/g, '');
+  if (/^(euc-?jp|eucjp|x-euc-jp)$/.test(s)) return 'euc-jp';
+  if (/^(shift[_-]?jis|sjis|windows-31j|cp932)$/.test(s)) return 'shift_jis';
+  if (/^(gb2312|gbk|gb18030)$/.test(s)) return s === 'gb2312' ? 'gbk' : s;
+  if (/^utf-?8$/.test(s) || !s) return 'utf-8';
+  return s;
+}
+function pickCharset(contentType, buffer) {
+  const ct = String(contentType || '');
+  let m = ct.match(/charset\s*=\s*["']?([^;"'\s]+)/i);
+  if (!m) {
+    const head = buffer.subarray(0, 8192).toString('latin1');
+    m = head.match(/<meta[^>]+charset\s*=\s*["']?([^"'\s/>]+)/i)
+      || head.match(/content\s*=\s*["'][^"']*charset\s*=\s*([^"'\s;]+)/i);
+  }
+  return normalizeCharset(m && m[1] || 'utf-8');
+}
+function decodeBody(buffer, contentType) {
+  const charset = pickCharset(contentType, buffer);
+  try {
+    return { text: new TextDecoder(charset).decode(buffer), charset };
+  } catch {
+    return { text: new TextDecoder('utf-8').decode(buffer), charset: 'utf-8' };
+  }
+}
+
+const REQUEST_TIMEOUT_MS = 15000;
+// 文本抓取：超时/中断时换一次新连接重试（seesaawiki 会偶发传到一半停住）。
+const MAX_TEXT_ATTEMPTS = 3;
 // 多地址时的单次尝试预算：够一次 TCP+TLS+首字节，又不至于让「第一个地址是坏的 IPv6」
 // 把整个 20 秒总预算耗光。
 const ATTEMPT_TIMEOUT_MS = 8000;
@@ -193,7 +224,7 @@ function validateLimit(value, name) {
  * 返回 `{ok:true,result}` 或 `{ok:false,error,retryable}`；retryable 只标记网络层失败
  * （连接失败/超时/正文中断），大小与图片签名等策略性拒绝不重试。
  */
-function attemptOnce(url, address, limit, binary, budgetMs) {
+function attemptOnce(url, address, limit, binary, budgetMs, contentTypeOut = {}) {
   return new Promise((resolve) => {
     let settled = false;
     let req;
@@ -225,6 +256,7 @@ function attemptOnce(url, address, limit, binary, budgetMs) {
           'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
           accept: binary ? 'image/*,*/*;q=0.8' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'accept-language': 'zh-CN,zh;q=0.9',
+          connection: 'close',
         },
         servername: url.protocol === 'https:' && !net.isIP(hostname) ? hostname : undefined,
         rejectUnauthorized: url.protocol === 'https:',
@@ -245,36 +277,30 @@ function attemptOnce(url, address, limit, binary, budgetMs) {
           return;
         }
         const chunks = [];
-        const decoder = binary ? null : new StringDecoder('utf8');
         let size = 0;
-        const appendText = (text) => {
-          const points = Array.from(text);
-          const remaining = limit - size;
-          chunks.push(points.slice(0, remaining).join(''));
-          size += Math.min(points.length, remaining);
-          if (size >= limit) {
-            done({ statusCode, body: chunks.join(''), truncated: true });
-            res.destroy();
-          }
-        };
+        const contentType = String(res.headers['content-type'] || '');
         res.on('data', (chunk) => {
           if (settled) return;
-          if (!binary) { appendText(decoder.write(chunk)); return; }
-          size += chunk.length;
-          if (size > limit) {
-            fail(new Error(`图片超过大小限制（${limit} 字节）`), false);
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          const remaining = limit - size;
+          if (remaining <= 0) {
+            done({ statusCode, buffer: Buffer.concat(chunks), truncated: true, contentType });
             res.destroy();
             return;
           }
-          chunks.push(chunk);
+          if (buf.length > remaining) {
+            chunks.push(buf.subarray(0, remaining));
+            size += remaining;
+            done({ statusCode, buffer: Buffer.concat(chunks), truncated: true, contentType });
+            res.destroy();
+            return;
+          }
+          chunks.push(buf);
+          size += buf.length;
         });
         res.on('end', () => {
           if (settled) return;
-          if (binary) done({ statusCode, buffer: Buffer.concat(chunks) });
-          else {
-            appendText(decoder.end());
-            done({ statusCode, body: chunks.join(''), truncated: false });
-          }
+          done({ statusCode, buffer: Buffer.concat(chunks), truncated: false, contentType });
         });
       });
       req.on('timeout', () => {
@@ -327,25 +353,67 @@ async function requestOnce(url, addresses, limit, binary = false) {
   throw lastError ?? new Error(`请求失败：${url.hostname}`);
 }
 
+const TEXT_CACHE = new Map();
+const TEXT_CACHE_TTL_MS = 5 * 60e3;
+const TEXT_CACHE_MAX = 8;
+
+function cacheGet(key) {
+  const hit = TEXT_CACHE.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > TEXT_CACHE_TTL_MS) { TEXT_CACHE.delete(key); return null; }
+  return hit.result;
+}
+function cacheSet(key, result) {
+  TEXT_CACHE.set(key, { at: Date.now(), result });
+  while (TEXT_CACHE.size > TEXT_CACHE_MAX) TEXT_CACHE.delete(TEXT_CACHE.keys().next().value);
+}
+
 export async function safeFetch(urlString, maxChars = 50000) {
   validateLimit(maxChars, 'maxChars');
+  // 多字节页面按字节留够余量：默认 1MB，最多 4MB。
+  const byteLimit = Math.min(4 * 1024 * 1024, Math.max(1024 * 1024, maxChars * 4));
   const MAX_REDIRECTS = 5;
+  const cacheKey = String(urlString);
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    const body = Array.from(cached.body).slice(0, maxChars).join('');
+    return { ...cached, body, truncated: Boolean(cached.truncated || body.length < cached.body.length), cached: true };
+  }
   let { url, addresses } = await validateFetchUrl(urlString);
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
-    const result = await requestOnce(url, addresses, maxChars);
+    let result = null;
+    let lastError = null;
+    for (let attempt = 0; attempt < MAX_TEXT_ATTEMPTS; attempt++) {
+      try {
+        result = await requestOnce(url, addresses, byteLimit);
+        break;
+      } catch (error) {
+        lastError = error;
+        const retryable = /超时|中断|ECONN|socket|EPIPE/i.test(String(error?.message || ''));
+        if (!retryable || attempt >= MAX_TEXT_ATTEMPTS - 1) throw error;
+      }
+    }
+    if (!result) throw lastError || new Error(`请求失败：${url.hostname}`);
     if ([301, 302, 303, 307, 308].includes(result.statusCode)) {
       if (!result.redirect) throw new Error(`重定向缺少 Location: ${result.statusCode}`);
       const next = new URL(result.redirect, url).toString();
       ({ url, addresses } = await validateFetchUrl(next));
       continue;
     }
-    const body = result.body || '';
-    return {
+    const decoded = decodeBody(result.buffer || Buffer.alloc(0), result.contentType);
+    let body = decoded.text;
+    const tooLong = Array.from(body).length > maxChars;
+    if (tooLong) body = Array.from(body).slice(0, maxChars).join('');
+    const out = {
       url: url.toString(),
       statusCode: result.statusCode,
-      truncated: result.truncated,
+      truncated: Boolean(result.truncated || tooLong),
+      charset: decoded.charset,
+      contentType: result.contentType || '',
       body,
     };
+    if (out.statusCode >= 200 && out.statusCode < 300) cacheSet(cacheKey, out);
+    return out;
   }
   throw new Error('重定向次数过多，已停止');
 }
@@ -375,6 +443,9 @@ export async function safeFetchBuffer(urlString, maxBytes = 8 * 1024 * 1024) {
     }
     if (result.statusCode < 200 || result.statusCode >= 300) {
       throw new Error(`图片抓取失败：HTTP ${result.statusCode}`);
+    }
+    if (result.truncated) {
+      throw new Error(`图片超过大小限制（${maxBytes} 字节）`);
     }
     if (!looksLikeImageBuffer(result.buffer)) {
       throw new Error(`抓取内容不是有效图片（PNG/JPEG/GIF/WebP）`);

@@ -452,7 +452,7 @@ export function makeClosureRecord({
     reason,
     summary: truncateChars(body.summary ?? '', cfg.maxSummaryChars),
     nextOpening: truncateChars(body.nextOpening ?? '', cfg.maxNextOpeningChars),
-    // 群会话不吃冷却（2026-10-31 主人定：群里有事就该接，冷却靠 drive 和概率就够了）
+    // 群会话不吃冷却（2026-10-31 老大定：群里有事就该接，冷却靠 drive 和概率就够了）
     cooldownUntil: now + (kind === 'private' ? cfg.cooldownMs : (cfg.groupCooldownMs ?? 0)),
     turns: Number(assessment?.signals?.turns) || 0,
     lastOtherKind: assessment?.signals?.lastOtherKind ?? null,

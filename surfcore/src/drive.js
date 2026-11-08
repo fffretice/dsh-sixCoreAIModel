@@ -71,7 +71,12 @@ export function computeDrive({ dims, lastContactAt = 0, now = Date.now(), asleep
 /** 注入用一行：只在真想说话时给，不报数字。 */
 export function drivePromptLine(info) {
   if (!info || !info.wantTalk) return '';
-  return `\n【你现在有点想说话】不是到点了，是你自己有点闷、有点想找人搭一句。\n- 可以主动起个话头；但别一上来就说「我好无聊」，说点具体的（刚看到的、想到的）\n- 对方没接就算了，别追\n`;
+  // 2026-11-07：驱力分叉。想说话 ≠ 只有说话这一条路；
+  // 手上有没弄明白的事时，先问她一句「你是想说话，还是想弄明白点什么」。
+  const fork = info.hasOpenWork
+    ? `- 还有一条路：你手上有没弄明白的事。要是现在更想弄明白它，就去查，不用非得说话。\n`
+    : '';
+  return `\n【你现在有点想说话】不是到点了，是你自己有点闷、有点想找人搭一句。\n- 可以主动起个话头；但别一上来就说「我好无聊」，说点具体的（刚看到的、想到的）\n${fork}- 对方没接就算了，别追\n`;
 }
 
 export const __test = { computeDrive };

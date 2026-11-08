@@ -90,6 +90,15 @@ def main():
 
     print(f"DSH 在跑（pid {pids[0]}）")
 
+    # 自检开关关掉时，不再按「太久没跑」告警（2026-11-06 老大停用每小时自检）
+    try:
+        ctl = read_json(os.path.expanduser("~/.dsh/selfcheck.json"), {})
+        if ctl.get("enabled", True) is False:
+            print("自检已关闭，跳过间隔检查")
+            return
+    except Exception:
+        pass
+
     # 自检是否太久没跑
     last_at = int(read_json(SELFCHECK_LAST, {}).get("atEpoch", 0) or 0)
     if last_at <= 0:

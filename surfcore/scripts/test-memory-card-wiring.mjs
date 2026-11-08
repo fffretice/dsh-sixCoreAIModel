@@ -22,7 +22,8 @@ assert.match(bridge, /recordSelfMemoryEvent\(key, sent\.join\('\\n'\)\)/, 'v2 �
 assert.match(bridge, /recordSelfMemoryEvent\(key, text\)/, 'v1 发送没有记录她自己的发言');
 assert.match(bridge, /isSelf: true/, '桥接 inbox 自发言没有 isSelf 标记');
 assert.match(bridge, /const memoryBlock = memoryCardPromptBlock\(\)/, 'v1/chat 角色提示没有注入记忆卡');
-assert.match(bridge, /const memoryCardText = memoryCardPromptBlock\(\)/, 'v2 唤醒提示没有注入记忆卡');
+// 2026-11-08：桥接 11-06 起按会话传 key（群聊视角要换 promptQqGroup 文件），断言允许带参。
+assert.match(bridge, /const memoryCardText = memoryCardPromptBlock\((?:key)?\)/, 'v2 唤醒提示没有注入记忆卡');
 assert.match(bridge, /\/api\/memory-card\/notify/, '桥接缺少记忆卡容量告警端点');
 assert.match(bridge, /memoryCard: memoryCardPromptBlock\(\)/, 'qq_get_prompt 没有返回记忆卡');
 

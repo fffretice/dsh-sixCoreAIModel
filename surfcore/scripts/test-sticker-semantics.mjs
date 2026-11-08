@@ -35,12 +35,12 @@ function test(name, fn) {
 const FIXTURE = [
   { id: 'st-1', md5: 'AA6B', desc: '咪兔 me too', emotion: 'agree', emotionAlt: ['cute'], content: '猫和兔子贴在一起说 me too，软软地附和', keywords: ['me too', '附和', '贴贴'], createdAt: '2026-10-22T01:01:02.241Z' },
   { id: 'st-2', md5: '336E', desc: '无辜被抓包', emotion: 'surprise', emotionAlt: ['wronged'], content: '动漫女孩突然被抓包，一脸心虚又无辜', keywords: ['被抓包', '心虚'], createdAt: '2026-10-22T22:06:39.465Z' },
-  { id: 'st-3', md5: '4727', desc: '杂鱼♡（角色自己）', emotion: 'tease', emotionAlt: ['smug', 'cute'], content: '蓝发女仆半眯眼笑着喊杂鱼♡，欠揍又带点撒娇', keywords: ['杂鱼', '就这', '嘲讽'], createdAt: '2026-10-22T22:06:40.000Z' },
-  { id: 'st-4', md5: '7CB9', desc: '办公室顶锅吃白饭（角色自己）', emotion: 'tired', emotionAlt: ['hungry', 'speechless'], content: '顶着锅在办公室大口扒白饭，鼓着脸摆烂', keywords: ['顶锅', '干饭', '上班'], createdAt: '2026-10-22T22:06:41.000Z' },
-  { id: 'st-5', md5: 'E2A6', desc: '角色自己·抱着碗委屈', emotion: 'wronged', emotionAlt: ['hungry', 'sad'], content: '抱着空碗眼泪汪汪，委屈巴巴地要饭', keywords: ['委屈', '要饭', '饿了'], createdAt: '2026-10-22T22:06:42.000Z' },
-  { id: 'st-6', md5: '4112', desc: '委屈招牌词·花token想的', emotion: 'wronged', emotionAlt: ['sad'], content: '哭着求你们别再嘲笑我的回复，这些是我花好多 token 想的', keywords: ['别嘲笑', 'token', '破防'], createdAt: '2026-10-22T22:06:43.000Z' },
-  { id: 'st-7', md5: 'A27C', desc: '雪地抱着雪球的角色', emotion: 'cute', emotionAlt: ['happy'], content: '雪地里抱着大雪球，脸红扑扑的软萌', keywords: ['雪球', '软萌'], createdAt: '2026-10-22T22:06:44.000Z' },
-  { id: 'st-8', md5: '0DC1', desc: '被摸头的摸鱼角色', emotion: 'happy', emotionAlt: ['cute', 'tired'], content: '被摸头舒服得眯眼笑，旁边写着摸鱼', keywords: ['摸头', '摸鱼'], createdAt: '2026-10-22T22:06:45.000Z' }
+  { id: 'st-3', md5: '4727', desc: '杂鱼♡（小咪自己）', emotion: 'tease', emotionAlt: ['smug', 'cute'], content: '蓝发女仆半眯眼笑着喊杂鱼♡，欠揍又带点撒娇', keywords: ['杂鱼', '就这', '嘲讽'], createdAt: '2026-10-22T22:06:40.000Z' },
+  { id: 'st-4', md5: '7CB9', desc: '办公室顶锅吃白饭（小咪自己）', emotion: 'tired', emotionAlt: ['hungry', 'speechless'], content: '顶着锅在办公室大口扒白饭，鼓着脸摆烂', keywords: ['顶锅', '干饭', '上班'], createdAt: '2026-10-22T22:06:41.000Z' },
+  { id: 'st-5', md5: 'E2A6', desc: '小咪自己·抱着碗委屈', emotion: 'wronged', emotionAlt: ['hungry', 'sad'], content: '抱着空碗眼泪汪汪，委屈巴巴地要饭', keywords: ['委屈', '要饭', '饿了'], createdAt: '2026-10-22T22:06:42.000Z' },
+  { id: 'st-6', md5: '4112', desc: '委屈鲸鱼娘·花token想的', emotion: 'wronged', emotionAlt: ['sad'], content: '哭着求你们别再嘲笑我的回复，这些是我花好多 token 想的', keywords: ['别嘲笑', 'token', '破防'], createdAt: '2026-10-22T22:06:43.000Z' },
+  { id: 'st-7', md5: 'A27C', desc: '雪地抱着雪球的小咪', emotion: 'cute', emotionAlt: ['happy'], content: '雪地里抱着大雪球，脸红扑扑的软萌', keywords: ['雪球', '软萌'], createdAt: '2026-10-22T22:06:44.000Z' },
+  { id: 'st-8', md5: '0DC1', desc: '被摸头的摸鱼小咪', emotion: 'happy', emotionAlt: ['cute', 'tired'], content: '被摸头舒服得眯眼笑，旁边写着摸鱼', keywords: ['摸头', '摸鱼'], createdAt: '2026-10-22T22:06:45.000Z' }
 ];
 
 function fixture() {

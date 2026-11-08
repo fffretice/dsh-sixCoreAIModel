@@ -47,7 +47,7 @@ const BILI_BEHAVIOR_FILES = new Set([
   'watch-history.jsonl', 'watch-history.1.jsonl',
 ]);
 const MEMORY_FILES = [
-  'memory-card.json', 'memory-card.md', 'memory-card-prompt-qq.md', 'memory-card-prompt-bili.md',
+  'memory-card.json', 'memory-card.md', 'memory-card-prompt-qq.md', 'memory-card-prompt-qq-group.md', 'memory-card-prompt-bili.md',
   'memory-inbox.jsonl', 'memory-card-full-stats.json', 'memory-card-full.md',
   'qq-for-bili.md', 'bili-for-qq.md', 'sync-state.json',
 ];
@@ -149,6 +149,10 @@ export function characterPaths(id) {
     memoryJson: path.join(memoryDir, 'memory-card.json'),
     memoryMd: path.join(memoryDir, 'memory-card.md'),
     memoryPromptQq: path.join(memoryDir, 'memory-card-prompt-qq.md'),
+    // 2026-11-08（task-12）：群聊视角注入块。插件维护器用 activeMemoryPaths() 调
+    // saveMemoryCardOutputs()；以前这里没有这个字段 → 群 prompt 只有桥接 digest 每天 05:30
+    // 才刷新，插件每 10 分钟的维护写不到它（群卡会拿着旧文件）。
+    memoryPromptQqGroup: path.join(memoryDir, 'memory-card-prompt-qq-group.md'),
     memoryPromptBili: path.join(memoryDir, 'memory-card-prompt-bili.md'),
     memoryInbox: path.join(memoryDir, 'memory-inbox.jsonl'),
     memoryFullJsonl: path.join(memoryDir, 'memory-card-full.jsonl'),
@@ -166,6 +170,7 @@ export function legacyMemoryPaths() {
     json: path.join(LEGACY_MEMORY_DIR, 'memory-card.json'),
     markdown: path.join(LEGACY_MEMORY_DIR, 'memory-card.md'),
     promptQq: path.join(LEGACY_MEMORY_DIR, 'memory-card-prompt-qq.md'),
+    promptQqGroup: path.join(LEGACY_MEMORY_DIR, 'memory-card-prompt-qq-group.md'),
     promptBili: path.join(LEGACY_MEMORY_DIR, 'memory-card-prompt-bili.md'),
     inbox: path.join(LEGACY_MEMORY_DIR, 'memory-inbox.jsonl'),
     fullJsonl: path.join(LEGACY_MEMORY_DIR, 'memory-card-full.jsonl'),
@@ -187,6 +192,7 @@ export function activeMemoryPaths() {
     json: p.memoryJson,
     markdown: p.memoryMd,
     promptQq: p.memoryPromptQq,
+    promptQqGroup: p.memoryPromptQqGroup,
     promptBili: p.memoryPromptBili,
     inbox: p.memoryInbox,
     fullJsonl: p.memoryFullJsonl,
@@ -346,7 +352,7 @@ function defaultPersona(name) {
   return `# 角色卡：${name}\n\n（在这里写这个人格卡：你是谁、说话方式、对谁温柔、边界。）\n`;
 }
 
-/** 从人格卡标题里取角色名（`# 角色卡：角色` / `# 角色`）；取不到就用角色名。 */
+/** 从人格卡标题里取角色名（`# 角色卡：小咪` / `# 小咪`）；取不到就用角色名。 */
 export function personaNameFromText(text, fallback = '') {
   const heading = /^#\s*(?:角色卡[：:]\s*)?(.+)$/m.exec(String(text ?? ''))?.[1]?.trim();
   return (heading || fallback || '').replace(/[#*`]/g, '').trim().slice(0, 40);
@@ -584,7 +590,7 @@ export function restoreSnapshot(id, slot, { now = Date.now() } = {}) {
   const before = snapshotCharacter(id, { slot: `pre-restore-${new Date(now).toISOString().replace(/[:.]/g, '-')}`, reason: 'before-restore', now });
   copyFile(path.join(source, 'persona.md'), paths.persona);
   // 只回档衰减卡与其注入块；全量记忆是 append-only，连 stats 都不回退（避免把后来的记忆统计抹掉）。
-  for (const file of ['memory-card.json', 'memory-card.md', 'memory-card-prompt-qq.md', 'memory-card-prompt-bili.md', 'memory-inbox.jsonl']) {
+  for (const file of ['memory-card.json', 'memory-card.md', 'memory-card-prompt-qq.md', 'memory-card-prompt-qq-group.md', 'memory-card-prompt-bili.md', 'memory-inbox.jsonl']) {
     copyFile(path.join(source, 'memory', file), path.join(paths.memoryDir, file));
   }
   try {

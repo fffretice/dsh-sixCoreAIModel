@@ -173,7 +173,7 @@ try {
     await fill('v2SleepMinMs', 42);
     await fill('v2PreSleepWaitMin', 0);
     await fill('v2RecProb', 0);
-    await fill('v2RecKeywords', '招牌词，DeepSeek, 测试');
+    await fill('v2RecKeywords', '鲸鱼，DeepSeek, 测试');
     await fill('v2AutoReplyCheckSec', 17);
     await fill('v2WaitDefaultQuietMs', 0);
     await fill('v2MaxSendMin', 0);
@@ -186,7 +186,7 @@ try {
     assert.equal(body.wake.sleepMinMs, 42000);
     assert.equal(body.wake.preSleepWaitMs, 0);
     assert.equal(body.wake.recommendedProbability, 0);
-    assert.deepEqual(body.wake.recommendedKeywords, ['招牌词', 'DeepSeek', '测试']);
+    assert.deepEqual(body.wake.recommendedKeywords, ['鲸鱼', 'DeepSeek', '测试']);
     assert.equal(body.autoReplyCheckMs, 17000);
     assert.equal(body.wait.defaultQuietMs, 0);
     assert.equal(body.send.maxSendPerMinute, 0);
@@ -202,11 +202,11 @@ try {
   await test('First-generation social parameter and phase contracts', async () => {
     await fill('sTrigger', 0.35);
     await fill('sCheckMin', 12);
-    await fill('sKeywords', '招牌词，测试');
+    await fill('sKeywords', '鲸鱼，测试');
     const body = await clickWrite('#socialSave', '/api/social');
     assert.equal(body.triggerProbability, 0.35);
     assert.equal(body.activeCheckMinMs, 12000);
-    assert.deepEqual(body.mustReplyKeywords, ['招牌词', '测试']);
+    assert.deepEqual(body.mustReplyKeywords, ['鲸鱼', '测试']);
     await (await reveal('#sStateKey')).selectOption('group:123456789');
     assert.deepEqual(await clickWrite('#sStateIdle', '/api/social/state'), { key: 'group:123456789', phase: 'idle' });
     assert.deepEqual(await clickWrite('#socialFlush', '/api/social/flush'), {});

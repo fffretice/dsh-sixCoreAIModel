@@ -33,6 +33,20 @@ import path from 'node:path';
 export const MEMORY_CARD_VERSION = 1;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+// ── 2026-11-08（记忆机制升级 P0，task-9）────────────────────────────────────
+// `normalizeCard()` 原来硬编码「最多 2000 条」是早期安全阀，但 11-06 把
+// config.memoryCard.maxRecords 提到 5000 后没同步。每次 load 都把卡砍回 2000，
+// 丢掉的老记录下一轮又从 memory-inbox 重新摄入、再归档一次 → 全量归档 96% 是重复行
+// （实测 139,936 行 / 5,497 唯一 id），热卡也只剩近 7 天。
+// 现在硬帽只当「防超大文件」的最后一道闸；真正上限交给 config.maxRecords。
+export const NORMALIZE_RECORDS_SAFETY_CAP = 20000;
+
+// inboxSeen 是「已经摄入过」的去重集合，必须 ≥ 读取窗口：
+// 插件维护器 `plugins/surfcore/lib/memory-card.js readInboxLines()` 每 10 分钟读
+// inbox.1 + inbox 的最后 4000 行。之前这里只留 3000 键 → 窗口边缘约 950 行
+// 每轮都被当成新消息重新摄入（P0 第二个根因，见 memory-upgrade.md §9）。
+export const INBOX_SEEN_KEEP = 5000;
+
 /** 容量告警阈值：80% / 90% / 100%（用户明确要求的三档）。 */
 export const MEMORY_CAPACITY_THRESHOLDS = Object.freeze([0.8, 0.9, 1.0]);
 
@@ -160,7 +174,7 @@ export function normalizeMemoryCardConfig(input = {}) {
     autoCompact: bool(raw.autoCompact, DEFAULT_MEMORY_CARD_CONFIG.autoCompact),
     notifyOwner: bool(raw.notifyOwner, DEFAULT_MEMORY_CARD_CONFIG.notifyOwner),
     includeQqInBili: bool(raw.includeQqInBili, DEFAULT_MEMORY_CARD_CONFIG.includeQqInBili),
-    maxRecords: clampInt(raw.maxRecords, DEFAULT_MEMORY_CARD_CONFIG.maxRecords, 100, 2000),
+    maxRecords: clampInt(raw.maxRecords, DEFAULT_MEMORY_CARD_CONFIG.maxRecords, 100, 20000),
     fullMaxBytes,
     fullMaxRecords,
     fullMarkdownMaxBytes: clampInt(raw.fullMarkdownMaxBytes, DEFAULT_MEMORY_CARD_CONFIG.fullMarkdownMaxBytes, 1024 * 1024, 50 * 1024 * 1024),
@@ -174,6 +188,7 @@ export function resolveMemoryCardPaths(memoryDir) {
     json: path.join(dir, 'memory-card.json'),
     markdown: path.join(dir, 'memory-card.md'),
     promptQq: path.join(dir, 'memory-card-prompt-qq.md'),
+    promptQqGroup: path.join(dir, 'memory-card-prompt-qq-group.md'),
     promptBili: path.join(dir, 'memory-card-prompt-bili.md'),
     inbox: path.join(dir, 'memory-inbox.jsonl'),
     // 全量记忆卡：只存档（全部清晰、永不遗忘），不生成 prompt 注入块。
@@ -222,6 +237,53 @@ function asArray(value) {
 
 function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+// ── 2026-11-08（task-12）：记录来源视图 ──────────────────────────────────
+// 背景：她在群里说「上午还在等11/16，下午就飞到2027了」——11/16 是私聊里 game8 卡池的事，
+// 却因为群聊记忆卡里也注入了私聊记录而被带进群聊。文本标签（「私聊里的，群里别提」）
+// 挡不住，所以改成**结构化来源 + 渲染期分视图**：
+//   · 每条记录记 originKind：private / group / pet / public（B站等公开来源）/ mixed / unknown；
+//   · 群聊视图只收 group / public；private / pet / mixed / unknown 一律不进（旧记录缺来源 → 不进）；
+//   · 私聊视图不筛（私聊里聊群事是正常的）。
+// 新增记录由 conversationKey / private / groupId / platform 自动推断，digest 等摘要记录显式写 originKind。
+export const MEMORY_ORIGIN_KINDS = Object.freeze(['private', 'group', 'pet', 'public', 'mixed', 'unknown']);
+
+export function normalizeOriginKind(value) {
+  const kind = String(value ?? '').trim();
+  return MEMORY_ORIGIN_KINDS.includes(kind) ? kind : '';
+}
+
+/** 从输入字段推断来源（新增记录 / 旧记录归一都用它）。 */
+export function inferOriginKindFromInput(input = {}) {
+  const conv = String(input.conversationKey ?? '');
+  if (conv.startsWith('private:')) return 'private';
+  if (conv.startsWith('group:')) return 'group';
+  if (conv === 'pet' || String(input.platform ?? '') === 'pet' || String(input.scope ?? '') === 'pet') return 'pet';
+  if (input.private === true) return 'private';
+  if (String(input.groupId ?? '')) return 'group';
+  const platform = String(input.platform ?? '');
+  const scope = String(input.scope ?? '');
+  if (platform === 'bili' || scope === 'bili' || scope === 'shared') return 'public';
+  return 'unknown';
+}
+
+/** 一条记录的来源种类：显式字段优先，其次按 conversationKey/private/groupId 推断。 */
+export function originKindOf(record) {
+  if (!record) return 'unknown';
+  return normalizeOriginKind(record.originKind) || inferOriginKindFromInput(record);
+}
+
+/** 群聊视图能不能看到这条：只放 group / public；unknown 默认不进（宁少说，不把私聊带进群）。 */
+export function canEnterGroupView(record) {
+  const kind = originKindOf(record);
+  return kind === 'group' || kind === 'public';
+}
+
+// 「回顾统计句」：`一共 N 句，你自己说了 M 句` 这类没有信息量的摘要，不再进卡、也不再进注入。
+export const RECAP_STAT_RE = /一共\s*\d+\s*句，你自己说了\s*\d+\s*句|里聊到一些零碎的话/;
+export function isRecapStatLine(text) {
+  return RECAP_STAT_RE.test(String(text ?? ''));
 }
 
 /** 脱敏：密钥/令牌/手机号/身份证/银行卡/链接。QQ scope 保留 QQ 号（本地记忆）；共享出去的不保留。 */
@@ -286,6 +348,9 @@ export function createEmptyCard(now = Date.now()) {
       firstMetAt: '',
       firstMetRecordIds: [],
       firstMetEventId: '',
+      // 2026-11-08（task-12）：来源分视图/统计句清理的一次性迁移标记（迁移时会备份卡）。
+      crossViewMigrationAt: '',
+      crossViewMigration: null,
     },
     alerts: {
       level: 0,
@@ -331,7 +396,7 @@ export function normalizeCard(raw) {
     stats: { ...base.stats, ...asObject(input.stats) },
     records: [],
   };
-  card.meta.inboxSeen = asArray(card.meta.inboxSeen).map(String).slice(-5000);
+  card.meta.inboxSeen = asArray(card.meta.inboxSeen).map(String).slice(-INBOX_SEEN_KEEP);
   card.meta.sourceSeen = asArray(card.meta.sourceSeen).map(String).slice(-5000);
   card.meta.firstMetRecordIds = asArray(card.meta.firstMetRecordIds).map(String).filter(Boolean).slice(0, 20);
   card.alerts.lastNotified = asObject(card.alerts.lastNotified);
@@ -339,10 +404,10 @@ export function normalizeCard(raw) {
     const rec = normalizeRecord(item);
     if (rec) card.records.push(rec);
   }
-  if (card.records.length > 2000) {
+  if (card.records.length > NORMALIZE_RECORDS_SAFETY_CAP) {
     // 超大手写/迁移卡：先保 pinned（最早的事、主人锚点），再留最近的部分。
     const pinned = card.records.filter((record) => record.pinned);
-    const rest = card.records.filter((record) => !record.pinned).slice(-Math.max(0, 2000 - pinned.length));
+    const rest = card.records.filter((record) => !record.pinned).slice(-Math.max(0, NORMALIZE_RECORDS_SAFETY_CAP - pinned.length));
     card.records = [...pinned, ...rest].sort((a, b) => timeOf(a.createdAt, 0) - timeOf(b.createdAt, 0));
   }
   // 旧卡没有「最初」字段：读盘时按首次主人互动补齐（确定性，不会每次刷新随机变）。
@@ -387,6 +452,9 @@ function normalizeRecord(item) {
     botReply: String(raw.botReply ?? '').slice(0, 600),
     isSelf: raw.isSelf === true,
     conversationKey: String(raw.conversationKey ?? ''),
+    // 2026-11-08（task-12）：来源视图。新记录由 conversationKey 推断；旧卡这里可能为空，
+    // 渲染期 originKindOf() 会再按 conversationKey/private/groupId 推断；推断不出 = unknown。
+    originKind: normalizeOriginKind(raw.originKind),
     // 「最初」是独立于「重要」的判定：仅和主人的互动，按首次接触的 30 天窗口分档。
     initialTier: ['first10', 'mid10', 'late10', 'after', 'first-meet'].includes(raw.initialTier) ? raw.initialTier : '',
     initialProbability: Number.isFinite(Number(raw.initialProbability)) ? Math.max(0, Math.min(1, Number(raw.initialProbability))) : 0,
@@ -1084,6 +1152,10 @@ function textTokens(text, limit = 24) {
 }
 
 /** 重要度评分 + 归类。这是「特殊判断规则」的唯一实现，控制台/测试都读它。 */
+// 2026-11-06：热卡到上限被淘汰的记录，交给调用方写进归档（full.jsonl），别直接丢。
+let memoryEvictHook = null;
+export function setMemoryEvictHook(fn) { memoryEvictHook = typeof fn === 'function' ? fn : null; }
+
 export function scoreMemory(input = {}, config = {}) {
   const cfg = normalizeMemoryCardConfig(config);
   const text = String(input.text ?? '');
@@ -1212,6 +1284,8 @@ function makeRecord(input, config, now) {
     botReply: String(input.botReply ?? '').slice(0, 600),
     isSelf: input.isSelf === true,
     conversationKey: String(input.conversationKey ?? ''),
+    // 来源视图：显式优先；否则按 conversationKey/private/groupId/platform 推断（见 originKindOf）。
+    originKind: normalizeOriginKind(input.originKind) || inferOriginKindFromInput(input),
     initialTier: '',
     initialProbability: 0,
     isInitial: false,
@@ -1255,6 +1329,7 @@ export function addMemoryRecord(card, input, config = {}, now = Date.now()) {
       .sort((a, b) => (a.importance - b.importance) || (timeOf(a.createdAt, 0) - timeOf(b.createdAt, 0)));
     while (card.records.length > cfg.maxRecords && removable.length) {
       const victim = removable.shift();
+      try { if (memoryEvictHook) memoryEvictHook(victim); } catch {}
       card.records = card.records.filter((item) => item.id !== victim.id);
       card.stats.forgotten = (Number(card.stats.forgotten) || 0) + 1;
     }
@@ -1300,6 +1375,25 @@ export function ingestInboxLines(card, lines, config = {}, now = Date.now()) {
     const inboxKey = hash(`${dateOnly(at)}|${item.senderId ?? ''}|${text}`, 20);
     if (seen.has(inboxKey)) continue;
     seen.add(inboxKey);
+
+    // 2026-11-06：记忆整理写进来的「回顾」条目。走同一条摄入链路，
+    // 但给定更高权重并钉住（否则一到上限就被淘汰）。
+    if (item.kind === 'digest') {
+      const res = addMemoryRecord(card, {
+        source: 'digest',
+        sourceId: `digest:${hash(text, 16)}`,
+        platform: 'qq',
+        scope: 'qq',
+        text,
+        title: String(item.title || '回顾'),
+        isOwner: false,
+        direct: true,
+        manualImportance: Number(item.importance) || 70,
+        createdAt: at,
+      }, cfg, now);
+      if (res.added && res.record) { res.record.pinned = true; added += 1; }
+      continue;
+    }
 
     const isOwner = item.isOwner === true;
     const isPrivate = item.private === true || item.kind === 'private';
@@ -1500,7 +1594,7 @@ export function ingestInboxLines(card, lines, config = {}, now = Date.now()) {
       touched += touchMemories(card, text, at);
     }
   }
-  card.meta.inboxSeen = [...seen].slice(-3000);
+  card.meta.inboxSeen = [...seen].slice(-INBOX_SEEN_KEEP);
   if (added) {
     const addedQq = Math.max(0, added - addedPet);
     if (addedQq) card.stats.fromQq = (Number(card.stats.fromQq) || 0) + addedQq;
@@ -1719,6 +1813,11 @@ function recordLine(record, { platform = 'qq', full = false } = {}) {
   } else {
     body = short(rawText, record.clarity === 'vivid' ? 200 : 130);
   }
+  // 2026-11-08：digest 的标题（“昨天你们聊过（私聊）”）原来被丢掉，早检按标题找会误报。
+  // 只给「回顾」类记录加标题前缀，普通聊天记录不变。
+  const digestTitle = Array.isArray(record.tags) && record.tags.includes('回顾')
+    && /^(昨天你们聊过|最近回顾)/.test(String(record.title || ''));
+  if (digestTitle) body = `【${short(record.title, 22)}】${body}`;
   if (record.isSelf && record.speaker) body = `${record.speaker}：${body}`;
   if (record.botReply) {
     const reply = redactForMemory(record.botReply, { scope, maxChars: 160 });
@@ -1728,10 +1827,14 @@ function recordLine(record, { platform = 'qq', full = false } = {}) {
   return full ? `${head}${body}（重要 ${record.importance}）` : `${head}${body}`;
 }
 
-function visibleFor(card, platform, cfg) {
+function visibleFor(card, platform, cfg, { groupView = false, injectView = false } = {}) {
   return card.records.filter((record) => {
     // 完整卡（platform='all'）保留敏感条目供管理员查看；注入提示词的 QQ / B站 两版都排除。
     if (record.sensitive) return platform === 'all';
+    // 注入视图（非完整卡）：统计句一律不注入（历史垃圾 / 旧代码漏写成的新行都不进提示词）。
+    if (injectView && isRecapStatLine(record.text)) return false;
+    // 群聊视图：只收群里发生的 + 公开来源；私聊/桌宠/无法判断的旧记录一律不进。
+    if (groupView && !canEnterGroupView(record)) return false;
     if (platform === 'bili') {
       if (record.scope === 'bili' || record.scope === 'shared') return true;
       return cfg.includeQqInBili && record.scope === 'qq';
@@ -1740,11 +1843,12 @@ function visibleFor(card, platform, cfg) {
   });
 }
 
-function sectionize(card, { platform = 'all', now = Date.now(), config = {}, limits = null } = {}) {
+function sectionize(card, { platform = 'all', now = Date.now(), config = {}, limits = null, full = false, groupView = false } = {}) {
   const cfg = normalizeMemoryCardConfig(config);
-  const visible = visibleFor(card, platform, cfg);
+  const visible = visibleFor(card, platform, cfg, { groupView, injectView: !full });
   const firstMet = [];
   const anchors = [];
+  const digest = [];
   const initial = [];
   const owner = [];
   const recent = [];
@@ -1767,10 +1871,21 @@ function sectionize(card, { platform = 'all', now = Date.now(), config = {}, lim
   };
   for (const record of visible.filter((item) => item.pinned && item.firstMet)) push(firstMet, record, 'firstMet');
   for (const record of visible.filter((item) => item.pinned && !item.firstMet)) push(anchors, record, 'anchors');
+  // 2026-11-08：digest 的「昨天你们聊过（私聊）」不能被 owner/recent 的配额挤掉。
+  // 单独一节，最多 3 条，优先展示；不进其他节重复。
+  const digestPool = visible
+    .filter((item) => !item.pinned && Array.isArray(item.tags) && item.tags.includes('回顾') && !used.has(item.id))
+    .sort((a, b) => {
+      // 「昨天你们聊过（私聊）」优先，避免被同批的「最近回顾 · 群」挤出前 3 条。
+      const pa = /昨天你们聊过/.test(String(a.title || '')) ? 1 : 0;
+      const pb = /昨天你们聊过/.test(String(b.title || '')) ? 1 : 0;
+      return (pb - pa) || (timeOf(b.createdAt, now) - timeOf(a.createdAt, now));
+    });
+  for (const record of digestPool) push(digest, record, 'digest');
   for (const record of visible.filter((item) => !item.pinned && item.platform !== 'pet' && item.tags.includes('owner') && item.isInitial)) push(initial, record, 'initial');
   // 「和主人」先挑（重要、有叙事），剩下的近期记录再进「最近记得的」。
   for (const record of visible.filter((item) => !item.pinned && item.platform !== 'pet' && item.tags.includes('owner') && !item.isInitial)) push(owner, record, 'owner');
-  // 2026-10-30 主人：最近发生的事也该出现。
+  // 2026-10-30 老大：最近发生的事也该出现。
   // 以前这里只收**非 owner** 记录，而她的记录几乎全带 owner 标签 → 这一节永远是空的。
   // 现在 owner 没被挑走的近期记录也进来，按时间倒序。
   // 2026-11-04：这一节以前要求「不是最初」，可整张卡才 7 天，按 offset 算概率
@@ -1803,6 +1918,7 @@ function sectionize(card, { platform = 'all', now = Date.now(), config = {}, lim
   return {
     firstMet: firstMet.sort(byRecent),
     anchors: anchors.sort(byImportance),
+    digest: digest.sort((a, b) => timeOf(b.createdAt, 0) - timeOf(a.createdAt, 0)),
     initial: initial.sort((a, b) => timeOf(a.createdAt, 0) - timeOf(b.createdAt, 0)),
     owner: owner.sort(byImportance),
     recent: recent.sort(byRecent),
@@ -1824,23 +1940,28 @@ export function renderMemoryCard(card, options = {}) {
   const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
   const cfg = normalizeMemoryCardConfig(options.config ?? {});
   const maxChars = full ? 0 : clampInt(options.maxChars, 0, 0, 20000);
-  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
-  const sections = sectionize(card, { platform, full, now, config: cfg, limits: limitsForSections });
+  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, digest: 3, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
+  // 2026-11-08（task-12）群聊视角：按结构化来源分视图，私聊来源在 sectionize 里就排除了，
+  // 不再靠「（私聊里的，群里别提）」这种文本标签兜底。
+  const groupView = !full && platform === 'qq' && options.perspective === 'group';
+  const sections = sectionize(card, { platform, full, now, config: cfg, limits: limitsForSections, groupView });
+  const fmtLine = (record) => recordLine(record, { platform, full });
   const limits = full
-    ? { firstMet: 9999, anchors: 9999, initial: 9999, owner: 9999, recent: 9999, bili: 9999, qq: 9999, pet: 9999, fuzzy: 9999 }
+    ? { firstMet: 9999, anchors: 9999, digest: 9999, initial: 9999, owner: 9999, recent: 9999, bili: 9999, qq: 9999, pet: 9999, fuzzy: 9999 }
     : (platform === 'bili'
-      ? { firstMet: 0, anchors: 4, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 }
-      : { firstMet: 1, anchors: 5, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
+      ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 }
+      : { firstMet: 1, anchors: 5, digest: 3, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
   const calls = [
-    { key: 'firstMet', title: '## 初次相遇（和主人）', priority: 120, lines: sections.firstMet.slice(0, limits.firstMet).map((record) => recordLine(record, { platform, full })) },
-    { key: 'anchors', title: '## 永远不会忘的', priority: 100, lines: sections.anchors.slice(0, limits.anchors).map((record) => recordLine(record, { platform, full })) },
-    { key: 'initial', title: '## 最初的日子（和主人）', priority: 45, lines: sections.initial.slice(0, limits.initial).map((record) => recordLine(record, { platform, full })) },
-    { key: 'owner', title: '## 和主人（管理员）的记忆', priority: 40, lines: sections.owner.slice(0, limits.owner).map((record) => recordLine(record, { platform, full })) },
-    { key: 'recent', title: '## 最近记得的', priority: 30, lines: sections.recent.slice(0, limits.recent).map((record) => recordLine(record, { platform, full })) },
-    { key: 'pet', title: '## 桌宠（私下相处）', priority: 36, lines: (sections.petModule ?? []).slice(0, limits.pet).map((record) => recordLine(record, { platform, full })) },
-    { key: 'bili', title: '## B站（冲浪）', priority: 22, lines: sections.biliModule.slice(0, limits.bili).map((record) => recordLine(record, { platform, full })) },
-    { key: 'qq', title: '## QQ 与群里的记忆', priority: 20, lines: sections.qqModule.slice(0, limits.qq).map((record) => recordLine(record, { platform, full })) },
-    { key: 'fuzzy', title: '## 正在模糊的事', priority: 10, lines: sections.fuzzy.slice(0, limits.fuzzy).map((record) => recordLine(record, { platform, full })) },
+    { key: 'firstMet', title: '## 初次相遇（和主人）', priority: 120, lines: sections.firstMet.slice(0, limits.firstMet).map((record) => fmtLine(record)) },
+    { key: 'anchors', title: '## 永远不会忘的', priority: 100, lines: sections.anchors.slice(0, limits.anchors).map((record) => fmtLine(record)) },
+    { key: 'digest', title: '## 最近回顾', priority: 50, lines: (sections.digest ?? []).slice(0, limits.digest).map((record) => fmtLine(record)) },
+    { key: 'initial', title: '## 最初的日子（和主人）', priority: 45, lines: sections.initial.slice(0, limits.initial).map((record) => fmtLine(record)) },
+    { key: 'owner', title: '## 和主人（管理员）的记忆', priority: 40, lines: sections.owner.slice(0, limits.owner).map((record) => fmtLine(record)) },
+    { key: 'recent', title: '## 最近记得的', priority: 30, lines: sections.recent.slice(0, limits.recent).map((record) => fmtLine(record)) },
+    { key: 'pet', title: '## 桌宠（私下相处）', priority: 36, lines: (sections.petModule ?? []).slice(0, limits.pet).map((record) => fmtLine(record)) },
+    { key: 'bili', title: '## B站（冲浪）', priority: 22, lines: sections.biliModule.slice(0, limits.bili).map((record) => fmtLine(record)) },
+    { key: 'qq', title: '## QQ 与群里的记忆', priority: 20, lines: sections.qqModule.slice(0, limits.qq).map((record) => fmtLine(record)) },
+    { key: 'fuzzy', title: '## 正在模糊的事', priority: 10, lines: sections.fuzzy.slice(0, limits.fuzzy).map((record) => fmtLine(record)) },
   ].filter((section) => section.lines.length);
 
   const limitText = cfg.maxChars > 0
@@ -1854,10 +1975,15 @@ export function renderMemoryCard(card, options = {}) {
     '> 「最初」和「重要」是两套判断：最初只看和主人的互动；初次相遇由用户指定或自动取最早一条。',
     '> 平台模块：B站冲浪、QQ 聊天、桌宠的私下相处、和主人的互动都在这张卡里；QQ / 桌宠的私事默认不带到 B站。',
   ].join('\n');
-  const headerPrompt = [
-    '【记忆卡 · 你自己的记忆】',
-    '（不是别人给你的设定。最初 / 最近 / 和主人相关的记得清楚，其余会淡忘；真的记不清就说“记不清了”，不要编。）',
-  ].join('\n');
+  const headerPrompt = groupView
+    ? [
+      '【记忆卡 · 你自己的记忆】',
+      '（这是你在**群聊**里的视角：只有群里发生过的事，别处听来的不在这一份里。真的记不清就说“记不清了”，不要编。）',
+    ].join('\n')
+    : [
+      '【记忆卡 · 你自己的记忆】',
+      '（不是别人给你的设定。最初 / 最近 / 和主人相关的记得清楚，其余会淡忘；真的记不清就说“记不清了”，不要编。）',
+    ].join('\n');
   const footerFull = '\n\n---\n\n（这张卡由 SurfCore 自动维护：每天模糊一点不重要的事，重要的事和最早的事不会丢。）';
   const footerPrompt = platform === 'bili'
     ? '\n\n（这些只是你自己的公开经历；不要在 B 站公开提到 QQ 群、QQ 号或群昵称。）'
@@ -1945,6 +2071,7 @@ export function memoryCardStatus(card, config = {}, now = Date.now()) {
     counts,
     promptChars: {
       qq: renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now }).length,
+      qqGroup: renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now, perspective: 'group' }).length,
       bili: renderMemoryCard(card, { config: cfg, platform: 'bili', maxChars: cfg.injectMaxChars.bili, now }).length,
     },
     updatedAt: card.updatedAt,
@@ -1961,10 +2088,12 @@ export function saveMemoryCardOutputs(paths, card, config = {}, now = Date.now()
   fs.mkdirSync(paths.dir, { recursive: true });
   const full = renderMemoryCard(card, { config: cfg, full: true, now });
   const promptQq = renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now });
+  const promptQqGroup = renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now, perspective: 'group' });
   const promptBili = renderMemoryCard(card, { config: cfg, platform: 'bili', maxChars: cfg.injectMaxChars.bili, now });
   writeTextAtomic(paths.json, `${JSON.stringify(card, null, 2)}\n`);
   writeTextAtomic(paths.markdown, `${full}\n`);
   writeTextAtomic(paths.promptQq, promptQq ? `${promptQq}\n` : '');
+  if (paths.promptQqGroup) writeTextAtomic(paths.promptQqGroup, promptQqGroup ? `${promptQqGroup}\n` : '');
   writeTextAtomic(paths.promptBili, promptBili ? `${promptBili}\n` : '');
   return {
     full,
@@ -1990,6 +2119,69 @@ function writeTextAtomic(file, text) {
  * 一次维护：摄取 QQ inbox + B站 entries → 每日衰减 → 超 100% 自动压缩 → 更新告警 → 写盘。
  * 调用方负责读源文件；坏源文件传空数组即可（不会清空已有记忆）。
  */
+/**
+ * 2026-11-08（task-12）：旧数据一次性迁移 + 每次维护的统计句清理。
+ *
+ * · 每次维护：把「回顾统计句」从热卡移除（它们维护前已先归档进全量卡，删除不丢内容）；
+ *   幂等，旧桥接/旧代码漏写进来的也会在下一次维护被清掉。
+ * · 第一次迁移：给旧「最近回顾/昨天你们聊过」笔记补 originKind（+群会话 conversationKey），
+ *   并把这些回顾摘要全部取消置顶——摘要不该占「永远不会忘的」。
+ * · 迁移前把当前 memory-card.json 备份成 `.bak-precrossview-<时间戳>`；
+ *   这里改的是维护器内存里的卡，落盘统一走 saveMemoryCardOutputs 的原子写，不手改卡。
+ */
+export function migrateMemoryRecords(card, { paths = null, now = Date.now() } = {}) {
+  if (!card || !Array.isArray(card.records)) return { changed: false, removed: 0, reclassified: 0, unpinned: 0 };
+  let changed = false;
+  // ① 每次维护都清「回顾统计句」
+  const kept = [];
+  let removed = 0;
+  for (const record of card.records) {
+    if (isRecapStatLine(record.text)) { removed += 1; continue; }
+    kept.push(record);
+  }
+  if (removed) { card.records = kept; changed = true; }
+  // ② 一次性迁移：旧回顾笔记补来源 + 取消置顶
+  let reclassified = 0;
+  let unpinned = 0;
+  if (!card.meta.crossViewMigrationAt) {
+    try {
+      if (paths?.json && fs.existsSync(paths.json)) {
+        const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
+        const bak = `${paths.json}.bak-precrossview-${stamp}`;
+        if (!fs.existsSync(bak)) fs.copyFileSync(paths.json, bak);
+        card.meta.crossViewMigration = { at: iso(now), backup: bak };
+      }
+    } catch {}
+    for (const record of card.records) {
+      const title = String(record.title || '');
+      const text = String(record.text || '');
+      const existingKind = normalizeOriginKind(record.originKind);
+      // 旧记录可能显式带着 'unknown'（早期 makeRecord 对 manual 记录写死的），也要按标题补来源。
+      if (!existingKind || existingKind === 'unknown') {
+        const groupMatch = title.match(/最近回顾 · 群\s*(\d+)/) || text.match(/^群\s*(\d+)里聊到/);
+        if (/昨天你们聊过（私聊）|最近回顾 · 私聊/.test(title) || /^私聊里聊到/.test(text)) {
+          record.originKind = 'private';
+          reclassified += 1;
+        } else if (groupMatch) {
+          record.originKind = 'group';
+          if (!record.conversationKey) record.conversationKey = `group:${groupMatch[1]}`;
+          reclassified += 1;
+        }
+      }
+      const tags = Array.isArray(record.tags) ? record.tags : [];
+      if (record.pinned && (tags.includes('回顾') || /最近回顾|昨天你们聊过/.test(title))) {
+        record.pinned = false;
+        record.anchor = false;
+        unpinned += 1;
+      }
+    }
+    card.meta.crossViewMigrationAt = iso(now);
+    if (card.meta.crossViewMigration) Object.assign(card.meta.crossViewMigration, { removed, reclassified, unpinned });
+    changed = true;
+  }
+  return { changed, removed, reclassified, unpinned };
+}
+
 export function maintainMemoryCard({
   paths,
   config = {},
@@ -2012,6 +2204,9 @@ export function maintainMemoryCard({
   // 全量卡是 JSONL：这里只 append 新行，不读整个档案、也不重写。
   const fullAdded = fullPaths ? archiveDecayedToFull(fullPaths, card, fullCfg, now) : 0;
   if (fullAdded) changed = true;
+  // 2026-11-08（task-12）：来源分视图迁移 + 回顾统计句清理（必须在归档之后，保证被清的记录已进全量卡）
+  const memoryMigrated = migrateMemoryRecords(card, { paths, now });
+  if (memoryMigrated.changed) changed = true;
   if (forceDecay || needsDailyDecay(card, cfg, now)) {
     // 插件/DSH 关了一周再开：按「错过几天」补跑，而不是只降一档。
     const steps = forceDecay ? 1 : decayDaysBetween(card.lastDecayDate, now);
@@ -2055,7 +2250,9 @@ export function maintainMemoryCard({
 }
 
 /** 手动加一条记忆（控制台用）。 */
-export function addManualMemory(card, { text, title = '', importance, scope = 'qq', tags = [] }, config = {}, now = Date.now()) {
+export function addManualMemory(card, {
+  text, title = '', importance, scope = 'qq', tags = [], originKind = '', conversationKey = '', private: isPrivate = false,
+}, config = {}, now = Date.now()) {
   const cfg = normalizeMemoryCardConfig(config);
   return addMemoryRecord(card, {
     source: 'manual',
@@ -2064,6 +2261,9 @@ export function addManualMemory(card, { text, title = '', importance, scope = 'q
     title: title || `手动记下：${short(text, 24)}`,
     isOwner: false,
     direct: true,
+    originKind: normalizeOriginKind(originKind),
+    conversationKey: String(conversationKey || ''),
+    private: isPrivate === true,
     manualImportance: Number.isFinite(Number(importance)) ? Number(importance) : 60,
     scope: scope === 'bili' || scope === 'shared' ? scope : 'qq',
     platform: scope === 'bili' ? 'bili' : (scope === 'shared' ? 'shared' : 'qq'),

@@ -1,11 +1,16 @@
 #!/bin/bash
-# 给管理员推一条 QQ 私聊（文字 / 图片）。用法：
+# 给老大推 QQ 私聊（文字 / 图片）。用法：
 #   notify-owner.sh "文字内容"
 #   notify-owner.sh "文字内容" /path/to/image.png
-# 依赖：config.json 里已配好 snowluma.accessToken 与 ownerQQ；本机 3000 端口是 OneBot HTTP。
-set -euo pipefail
-BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MSG="${1:?用法: notify-owner.sh \"文字\" [图片路径]}"
+#
+# 失败时不丢消息：写进 state/assistant-outbox.jsonl，下一轮自检可以重试。
+set -uo pipefail
+MSG="$1"
+# 助手发给老大的话，一律带【助手】前缀（老大 2026-10-29 定的规矩）
+case "$MSG" in
+  【助手】*|[助手]*) ;;
+  *) MSG="【助手】$MSG" ;;
+esac
 IMG="${2:-}"
 
 PY=python3

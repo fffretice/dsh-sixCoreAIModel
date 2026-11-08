@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 夜间全量体检（2026-11-02 主人要求，每天 04:10）
+ * 夜间全量体检（2026-11-02 老大要求，每天 04:10）
  *
  * 目的：把「开发了但没在正常工作 / 跑歪了 / 触发不了」的功能每天翻一遍，
  *       按优先级列出来，**只记录不修改**。
@@ -127,7 +127,10 @@ function checkTimers() {
   for (const [name, periodMin] of Object.entries(spec)) {
     const b = hb.beats?.[name];
     if (!b) { bad.push(`${name}（从未）`); continue; }
-    const gap = (Date.now() - Number(b.at)) / 60000;
+    // 2026-11-08 PM：心跳快照 savedAt 每 10 分钟才落盘，用 Date.now() 算会把
+    // 「上次落盘到现在」的相位差算成「定时器没跑」（目的阈值 6 分钟 → 必然误报）。
+    // 用「快照落盘那一刻距上次心跳多久」才对。
+    const gap = (Number(hb.savedAt) - Number(b.at)) / 60000;
     if (gap > Math.max(periodMin * 3, 6)) bad.push(`${name}（${gap.toFixed(0)} 分钟没跑）`);
   }
   if (bad.length) add(1, '定时器', `${bad.length} 个定时任务没在正常跑`, bad.join('、'), '回调里提前 return，或定时器没注册', '对照源码检查条件分支');
@@ -226,7 +229,10 @@ function checkLearnLedger() {
   const led = readJson(path.join(STATE, 'learn-ledger.json'));
   const items = Array.isArray(led) ? led : Object.values(led?.items || {});
   if (!items.length) { ok('学习账本', '账本为空'); return; }
-  const pending = items.filter((e) => e.stage !== 'adopted' && Number(e.weight || 0) >= 2);
+  // 2026-11-08 PM：判据原来写死 weight>=2，不读条目自己的 threshold（2.56 等），
+  // 把「还没攒够」的条目永久报成 P1（例：「不要应得太直接了」w=2 / threshold=2.56）。
+  // 以条目自己的 threshold 为准；没有 threshold 的老条目才退回 2。
+  const pending = items.filter((e) => e.stage !== 'adopted' && Number(e.weight || 0) >= Number(e.threshold ?? 2));
   const byKind = {};
   for (const e of items) byKind[e.kind || '?'] = (byKind[e.kind || '?'] || 0) + 1;
   ok('学习账本', `${items.length} 条（${Object.entries(byKind).map(([k, v]) => `${k} ${v}`).join('、')}）`);
@@ -257,7 +263,7 @@ function checkLearnLedger() {
       const onlyMeta = metaRules.filter((t) => !fileSet.has(norm(t)));
       if (onlyMeta.length > 2) {
         // 2026-11-04：以前只报不修。meta 里留着文件已经没有的句子时，
-        // 会出现「索引以为这条规矩在生效、她其实根本没看到」（「只属于你和主人的话」就是这么丢的）。
+        // 会出现「索引以为这条规矩在生效、她其实根本没看到」（「只属于你和老大的话」就是这么丢的）。
         // 方向固定为 文件 → meta：文件是权威，反向补回去会把清理掉的旧句子捡回来。
         let healed = '';
         try {
@@ -270,7 +276,13 @@ function checkLearnLedger() {
       } else {
         ok('规则核心', `AUTO:owner ${count} 条，meta ${metaRules.length} 条（差异 ${onlyMeta.length}）`);
       }
-      if (text.length > 6200) add(2, '规则核心', `规则文件 ${text.length} 字符`, '上限 6000，超了会被截', '', '压缩低频条目');
+      // 2026-11-08 PM：上限从 config.role.maxInjectChars 读（当前 7200），
+      // 不再硬编码 6000/6200——旧口径会一直报假警报。
+      const maxInject = (() => {
+        try { return Number(readJson(path.join(SURF, 'config.json'))?.role?.maxInjectChars) || 7200; }
+        catch { return 7200; }
+      })();
+      if (text.length > maxInject * 0.96) add(2, '规则核心', `规则文件 ${text.length} 字符（预算 ${maxInject}）`, '余量不足 4%，新教学可能挤不进去', '', '压缩低频条目');
     }
   } catch {}
 }
@@ -284,6 +296,33 @@ function checkLogs() {
   if (errs.length > 20) add(1, '日志', `bridge.log 里 ${errs.length} 条异常`, errs.slice(-3).map((l) => l.slice(0, 100)).join(' ｜ '), '', '看上面对应的模块');
   else if (errs.length > 0) add(2, '日志', `${errs.length} 条异常记录`, errs.slice(-2).map((l) => l.slice(0, 100)).join(' ｜ '));
   else ok('日志', '今天没有异常记录');
+}
+
+// ── 记忆体量（2026-11-06 加的）──────────────────────────────────
+// 热卡满了会往 full.jsonl 归档；归档涨太大会拖慢 recallFullMemory 的全量扫描。
+function checkMemorySizes() {
+  const dirs = [];
+  try {
+    const chars = path.join(HOME, '.dsh', 'surfcore', 'characters');
+    for (const d of fs.readdirSync(chars)) {
+      const m = path.join(chars, d, 'memory');
+      if (fs.existsSync(path.join(m, 'memory-card.json'))) dirs.push(m);
+    }
+  } catch {}
+  if (!dirs.length) { ok('记忆', '没找到记忆卡目录'); return; }
+  for (const dir of dirs) {
+    const card = path.join(dir, 'memory-card.json');
+    const full = path.join(dir, 'memory-card-full.jsonl');
+    const mb = (f) => { try { return fs.statSync(f).size / 1024 / 1024; } catch { return 0; } };
+    const cardMb = mb(card), fullMb = mb(full);
+    let n = 0;
+    try { n = (JSON.parse(fs.readFileSync(card, 'utf8')).records || []).length; } catch {}
+    const tag = path.basename(path.dirname(dir));
+    if (fullMb > 500) add(1, '记忆', `${tag} 归档已 ${fullMb.toFixed(0)} MB`, `热卡 ${n} 条 / ${cardMb.toFixed(1)} MB`, '', '给 full.jsonl 加按日期分段，或提高归档压缩');
+    else if (fullMb > 200) add(2, '记忆', `${tag} 归档 ${fullMb.toFixed(0)} MB，开始偏大`, `热卡 ${n} 条 / ${cardMb.toFixed(1)} MB`, '', '考虑按日期分段');
+    else if (cardMb > 20) add(2, '记忆', `${tag} 热卡 ${cardMb.toFixed(1)} MB`, `${n} 条`, '', '检查 maxRecords 是否设得过大');
+    else ok('记忆', `${tag}：热卡 ${n} 条 / ${cardMb.toFixed(1)} MB，归档 ${fullMb.toFixed(1)} MB`);
+  }
 }
 
 // ── I. 文档路径 ─────────────────────────────────────────────────
@@ -320,6 +359,7 @@ checkConfig();
 checkLearnLedger();
 checkLogs();
 checkDocs();
+checkMemorySizes();
 
 const order = { 0: 0, 1: 1, 2: 2, ok: 9 };
 findings.sort((a, b) => order[a.p] - order[b.p]);

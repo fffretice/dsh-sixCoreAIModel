@@ -12,6 +12,8 @@ import {
   maintainMemoryCard, memoryCardStatus, mergeMemories, normalizeMemoryCardConfig, readAllFullRecords,
   recallFullMemory, redactForMemory, refreshInitialState, renderFullMemoryCard, renderMemoryCard,
   resolveMemoryCardPaths, scoreMemory, shouldNotifyOwner, targetClarity,
+  NORMALIZE_RECORDS_SAFETY_CAP, INBOX_SEEN_KEEP,
+  originKindOf, canEnterGroupView, isRecapStatLine,
 } from '../src/memory-card.js';
 
 const temps = [];
@@ -60,7 +62,7 @@ test('重要度：和主人的情绪互动最重，第一次见面是永久锚�
 test('QQ inbox：投递一次就入库；重复不重复占容量；第一句主人消息被钉成锚点', () => {
   const card = createEmptyCard(NOW);
   const lines = [
-    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: '群友A', senderId: '1000000005', text: '角色在吗', isOwner: false, direct: true }),
+    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: 'omm', senderId: '2373982492', text: '角色在吗', isOwner: false, direct: true }),
     JSON.stringify({ at: '2026-10-20T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
     // 同一句话隔天重复：不重复占容量（同一段 2 天窗口内按文本去重）
     JSON.stringify({ at: '2026-10-21T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
@@ -83,7 +85,7 @@ test('QQ inbox：投递一次就入库；重复不重复占容量；第一句主
 test('B站摄取出模块，且 sourceId 去重；时政/八卦只留在本地不进提示词', () => {
   const card = createEmptyCard(NOW);
   const entries = [
-    { id: 'bv:BV1aaa', type: 'video', title: '招牌词学黑话', text: '有趣', reason: 'AI 运营号自己学黑话，诚实又好笑', score: 14, favorite: false, at: '2026-10-21T20:00:00+08:00' },
+    { id: 'bv:BV1aaa', type: 'video', title: '鲸鱼娘学黑话', text: '有趣', reason: 'AI 运营号自己学黑话，诚实又好笑', score: 14, favorite: false, at: '2026-10-21T20:00:00+08:00' },
     { id: 'bv:BV1bbb', type: 'dynamic', title: '午mer', text: '今天看到一条很好笑的二创', score: 12, favorite: true, at: '2026-10-22T09:00:00+08:00' },
     { id: 'bv:BV1ccc', type: 'video', title: '某国大选新闻', text: '时政', reason: '新闻', score: 3, at: '2026-10-22T08:00:00+08:00' },
   ];
@@ -93,7 +95,7 @@ test('B站摄取出模块，且 sourceId 去重；时政/八卦只留在本地�
   const again = ingestBiliEntries(card, entries, CFG, NOW);
   assert.equal(again.added, 0);
   const biliPrompt = renderMemoryCard(card, { config: CFG, platform: 'bili', maxChars: 2000, now: NOW });
-  assert.match(biliPrompt, /招牌词学黑话/);
+  assert.match(biliPrompt, /鲸鱼娘学黑话/);
   assert.doesNotMatch(biliPrompt, /某国大选新闻/);
   const full = renderMemoryCard(card, { config: CFG, full: true, now: NOW + 10 * DAY_MS });
   assert.match(full, /B站（冲浪）/);
@@ -332,16 +334,16 @@ test('全量卡：按关键词召回，容量按 JSONL 字节数算', () => {
     createdAt: NOW - 2 * DAY_MS,
   }, CFG, NOW);
   addMemoryRecord(card, {
-    source: 'bili-video', sourceId: 'bili:recall', text: '在 B站 看了《招牌词学黑话》，很好笑', title: '招牌词学黑话', score: 12, scope: 'bili', platform: 'bili',
+    source: 'bili-video', sourceId: 'bili:recall', text: '在 B站 看了《鲸鱼娘学黑话》，很好笑', title: '鲸鱼娘学黑话', score: 12, scope: 'bili', platform: 'bili',
     createdAt: NOW - DAY_MS,
   }, CFG, NOW);
   assert.equal(archiveDecayedToFull(paths, card, CFG, NOW), 2);
   const owner = recallFullMemory(paths, '第一次', { limit: 5 });
   assert.ok(owner.length >= 1);
   assert.match(owner[0].text, /第一次见到你/);
-  const bili = recallFullMemory(paths, '招牌词', { limit: 5 });
+  const bili = recallFullMemory(paths, '鲸鱼娘', { limit: 5 });
   assert.ok(bili.length >= 1);
-  assert.match(bili[0].text, /招牌词/);
+  assert.match(bili[0].text, /鲸鱼娘/);
   const status = fullMemoryCardStatus(paths, normalizeMemoryCardConfig({ fullMaxBytes: 10 * 1024 * 1024 }), NOW);
   assert.equal(status.records, 2);
   assert.ok(status.bytes > 0);
@@ -473,7 +475,7 @@ test('合并事件：任意多条记忆可合并为一个，默认置顶，不�
   const card = createEmptyCard(NOW - 40 * DAY_MS);
   const owner = addOwnerRecord(card, 0, '最初的主人互动');
   const b1 = addMemoryRecord(card, {
-    source: 'bili-video', sourceId: 'merge:b1', text: '在 B 站看了《招牌词》', title: '招牌词',
+    source: 'bili-video', sourceId: 'merge:b1', text: '在 B 站看了《鲸鱼娘》', title: '鲸鱼娘',
     score: 10, scope: 'bili', platform: 'bili', createdAt: NOW - 10 * DAY_MS, lastSeenAt: NOW - 10 * DAY_MS,
   }, CFG, NOW).record;
   const b2 = addMemoryRecord(card, {
@@ -493,7 +495,7 @@ test('合并事件：任意多条记忆可合并为一个，默认置顶，不�
   assert.equal(event.pinned, true);
   assert.equal(event.tags.includes('merged'), true);
   assert.equal(event.scope, 'bili');
-  assert.match(event.text, /招牌词/);
+  assert.match(event.text, /鲸鱼娘/);
   assert.match(event.text, /猫猫/);
   assert.equal(card.meta.firstMetEventId, firstBefore, '合并普通记忆不应改变初次相遇');
   assert.equal(owner.firstMet, true);
@@ -578,8 +580,8 @@ test('桌宠对话：同一张记忆卡、platform/scope 独立，默认不进 B
   const t0 = NOW;
   const lines = [
     JSON.stringify({ at: new Date(t0).toISOString(), platform: 'pet', kind: 'private', sender: '主人', isOwner: true, private: true, direct: true, conversationKey: 'pet', text: '今天桌面上陪我一会儿好不好呀' }),
-    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
-    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
+    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
+    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
   ];
   const res = ingestInboxLines(card, lines, CFG, t0 + 2 * 60 * 60_000);
   assert.equal(res.added, 2, '主人一条 + 主动搭话一条；她的回复并进主人记录');

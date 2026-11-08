@@ -1,6 +1,6 @@
 #!/bin/bash
-# 桥接守护：launchd / systemd 跑这个脚本，脚本负责「DSH 端口发现 + 拉起桥接 + 崩了再拉」。
-# 为什么不直接让服务管理器跑 bridge.js：桥接需要一个会变的 DSH 端口（每次重启都变），
+# 桥接守护：launchd 跑这个脚本，脚本负责「DSH 端口发现 + 拉起桥接 + 崩了再拉」。
+# 为什么不直接让 launchd 跑 bridge.js：桥接需要一个会变的 DSH 端口（每次重启都变），
 # 而且要和插件的 autoStartBridge 共存——所以这里做成「有实例就守着，没实例才起」。
 set -u
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,22 +24,23 @@ bridge_matches_dsh() {
     | grep -qi '"dshReady":true'
 }
 
-# 找出 DSH 正在监听的本地端口（macOS / Linux 都用 lsof；没有 lsof 就退化到 ss）。
 dsh_port() {
-  if command -v lsof >/dev/null 2>&1; then
-    lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null \
-      | awk '/DeepSeek|dsh/ && /127\.0\.0\.1/ {print $9}' | sed 's/.*://' | head -1
-  elif command -v ss >/dev/null 2>&1; then
-    ss -lntp 2>/dev/null | awk '/127\.0\.0\.1/ {print $4}' | sed 's/.*://' | head -1
-  fi
+  lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk '/DeepSeek/ && /127\.0\.0\.1/ {print $9}' | sed 's/.*://' | head -1
 }
 
-say "守护启动（$BASE）"
+say "守护启动"
 while true; do
   if bridge_ok; then
     CUR_PORT=$(dsh_port)
+    # DSH 正在重启/暂时没监听的瞬间，端口会是空的——这时不能把桥接杀了。
+    if [ -z "$CUR_PORT" ]; then sleep 20; continue; fi
     if bridge_matches_dsh "$CUR_PORT"; then sleep 20; continue; fi
-    say "桥接活着但连的不是当前 DSH 端口（应为 ${CUR_PORT:-未知}），重启它"
+    # 连续两次都对不上才动手，避免 DSH 一瞬间忙/慢就触发重启风暴。
+    sleep 8
+    CUR_PORT2=$(dsh_port)
+    [ -z "$CUR_PORT2" ] && { sleep 20; continue; }
+    if bridge_matches_dsh "$CUR_PORT2"; then sleep 20; continue; fi
+    say "桥接活着但连的不是当前 DSH 端口（应为 $CUR_PORT2），重启它"
     pkill -f "src/bridge.js" 2>/dev/null
     sleep 3
     continue
@@ -57,9 +58,9 @@ while true; do
   fi
   say "拉起桥接（DSH 端口 $PORT）"
   cd "$BASE" || exit 1
-  DSH_WEB_URL="http://127.0.0.1:$PORT" node src/bridge.js >> "$BASE/state/bridge-supervisor.out" 2>&1 &
+  DSH_WEB_URL="http://127.0.0.1:$PORT" node src/bridge.js >> /tmp/bridge-supervisor.out 2>&1 &
   CHILD=$!
-  wait "$CHILD"
-  say "桥接退出（pid $CHILD），10 秒后重试"
+  wait $CHILD
+  say "桥接退出（pid $CHILD，码 $?），10 秒后重试"
   sleep 10
 done

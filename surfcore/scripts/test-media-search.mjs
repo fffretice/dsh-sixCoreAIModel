@@ -233,7 +233,7 @@ await test('resolveSearchApiKey 的优先级：config > env > DSH 凭据', async
     fs.writeFileSync(path.join(home, '.credentials.yaml'), [
       'version: 1',
       'refs:',
-      '  QQ_TEST_SEARCH_KEY: sk-from-dsh-credentials',   // release-audit: allow（测试夹具，假值）
+      '  QQ_TEST_SEARCH_KEY: sk-example-dsh-credentials',
       'records: {}',
       ''
     ].join('\n'));
@@ -241,10 +241,10 @@ await test('resolveSearchApiKey 的优先级：config > env > DSH 凭据', async
     delete process.env.QQ_TEST_SEARCH_KEY;
 
     assert.equal(resolveSearchApiKey({ apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }).source, 'dsh-credentials');
-    assert.equal(readDshCredential('QQ_TEST_SEARCH_KEY'), 'sk-from-dsh-credentials');   // release-audit: allow（测试夹具，假值）
+    assert.equal(readDshCredential('QQ_TEST_SEARCH_KEY'), 'sk-test');
 
-    process.env.QQ_TEST_SEARCH_KEY = 'sk-from-env';
-    assert.deepEqual(resolveSearchApiKey({ apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }), { key: 'sk-from-env', source: 'env' });
+    process.env.QQ_TEST_SEARCH_KEY = 'sk-env';
+    assert.deepEqual(resolveSearchApiKey({ apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }), { key: 'sk-env', source: 'env' });
 
     assert.deepEqual(
       resolveSearchApiKey({ apiKey: 'sk-from-config', apiKeyEnv: 'QQ_TEST_SEARCH_KEY' }),
@@ -268,9 +268,9 @@ await test('mapDeepSeekResponse：去重、去 #N 锚点、引用摘要', async 
       {
         type: 'web_search_tool_result',
         content: [
-          { type: 'web_search_result', title: '招牌词', url: 'https://example.com/a#1', page_age: '2026-10-01' },
+          { type: 'web_search_result', title: '鲸鱼娘', url: 'https://example.com/a#1', page_age: '2026-10-01' },
           { type: 'web_search_result', title: '重复', url: 'https://example.com/a#2' },
-          { type: 'web_search_result', title: '招牌词（二）', url: 'https://example.com/b' }
+          { type: 'web_search_result', title: '鲸鱼娘（二）', url: 'https://example.com/b' }
         ]
       },
       { type: 'text', text: '答案', citations: [{ url: 'https://example.com/b', cited_text: '这是引用片段' }] }

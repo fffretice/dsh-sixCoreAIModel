@@ -45,7 +45,7 @@ export const DEFAULT_MANIFESTS = [
     // 2026-10-27：只起 run.bat 时发语音全 503，用户以为"语音坏了"。
     engineScript: 'gsv.bat',
     enginePort: 9880,
-    repo: 'your-github/surfvoicelocal',
+    repo: 'Mieksido/surfvoicelocal',
     postInstall: ['scripts/fetch-models.mjs', 'scripts/bootstrap-env.mjs'],
     // 装完必须存在的目录（否则就是"只下了代码、模型没下完"）
     verifyDirs: ['models', 'vendor/GPT-SoVITS'],
@@ -68,7 +68,7 @@ export const DEFAULT_MANIFESTS = [
     port: 8767,
     startScript: 'run.bat',
     stopScript: 'stop.bat',
-    repo: 'your-github/surfvoicecloud',
+    repo: 'Mieksido/surfvoicecloud',
     postInstall: ['scripts/fetch-models.mjs', 'scripts/bootstrap-env.mjs'],
     verifyDirs: ['models'],
     url: process.env.SURFCORE_VOICE_CLOUD_URL || devPackUrl('voice-cloud'),

@@ -83,7 +83,7 @@ def main():
     except Exception:
         pass
     voxd = http_code("http://127.0.0.1:8765/v1/health")[0]
-    gsv = http_code("http://127.0.0.1:9880/docs")[0]
+    gsv = http_code("http://127.0.0.1:8766/health")[0]  # 2026-11-07：当前 TTS 是 gsvft(8766)；旧 GPT-SoVITS 9880 已停用
     try:
         with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as f:
             sl_token = (json.load(f).get("snowluma") or {}).get("accessToken", "")
@@ -145,7 +145,13 @@ def main():
         if q.get("caps"):
             today = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
             tag = "已重置" if q.get("day") == today else f"旧数据 {q.get('day')}"
-            pairs = " · ".join(f"{k} {v}" for k, v in q["caps"].items())
+            # 对齐监控台：这里显示的是「基础上限 + 当日加餐」，和 app / web 看到的一致
+            try:
+                pat = json.load(open(os.path.expanduser("~/SurfCore/state/patron.json"), encoding="utf-8"))
+                bonus = int((pat.get("bonus") or {}).get("wakes") or 0) if (pat.get("bonus") or {}).get("day") == today else 0
+            except Exception:
+                bonus = 0
+            pairs = " · ".join(f"{k} {v}+{bonus}={v + bonus}" for k, v in q["caps"].items())
             print(f"  群额度({tag}): {pairs}")
         else:
             print("  群额度: 尚未分配（等 bridge 首次重算）")

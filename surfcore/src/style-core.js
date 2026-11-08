@@ -23,6 +23,9 @@ export const STYLE_DEFAULTS = Object.freeze({
   longRatio: 2.2,     // 比群里平均长这么多倍才算「长」
   listRatio: 0.4,     // 列点比例
   dailyLimit: 1,
+  // 2026-11-04：老大觉得一天一次太稀。改成非睡眠时段（8:00 起）每 3 小时最多提醒一次。
+  minIntervalMs: 3 * 60 * 60 * 1000,
+  dayStartHour: 8,
 });
 
 const q = (s) => String(s ?? '').replace(/\s+/g, '');
@@ -42,7 +45,9 @@ export function normalizeStyle(raw) {
       selfQ: Number(v.selfQ) || 0,
       selfList: Number(v.selfList) || 0,
       selfN: Number(v.selfN) || 0,
+      selfFirst: Number(v.selfFirst) || 0,
       lastPromptDay: String(v.lastPromptDay || ''),
+      lastPromptAt: Number(v.lastPromptAt) || 0,
     };
   }
   return base;
@@ -60,11 +65,13 @@ export function recordSample(state, { key, self = false, text = '', at = Date.no
   if (!key) return st;
   const body = q(text);
   if (!body || body.length < 2) return st;
-  const bucket = st.byKey[key] || (st.byKey[key] = { selfLens: [], otherLens: [], selfQ: 0, selfList: 0, selfN: 0, lastPromptDay: '' });
+  const bucket = st.byKey[key] || (st.byKey[key] = { selfLens: [], otherLens: [], selfQ: 0, selfList: 0, selfN: 0, selfFirst: 0, lastPromptDay: '' });
   if (self) {
     bucket.selfLens.push(body.length);
     bucket.selfLens = bucket.selfLens.slice(-STYLE_DEFAULTS.selfWindow);
     bucket.selfN += 1;
+    // 2026-11-05：以「我」开头的比例——高了就像在汇报自己的状态/动作
+    if (/^\s*(我|咱)/.test(body)) bucket.selfFirst = Number(bucket.selfFirst || 0) + 1;
     if (/[？?]|吗[。！？!?]?$|呢[。！？!?]?$/.test(body)) bucket.selfQ += 1;
     if (/[：:]/.test(body) || /(^|\s)[1-9][.、]/.test(body) || (body.match(/、/g) || []).length >= 3) bucket.selfList += 1;
   } else {
@@ -85,7 +92,12 @@ export function styleLine(state, { key, at = Date.now(), opts = {} } = {}) {
   const bucket = st.byKey[key];
   if (!bucket) return { state: st, line: '' };
   const dailyLimit = Number(opts.dailyLimit ?? STYLE_DEFAULTS.dailyLimit);
-  if (bucket.lastPromptDay === dayKey(at)) return { state: st, line: '' };
+  // 2026-11-04：从「每天一次」改成「非睡眠时段每 3 小时一次」。
+  // 8:00 之前一律不说——半夜没人聊天，提醒她「话说长了」没有意义。
+  const hour = new Date(at).getHours();
+  if (hour < Number(opts.dayStartHour ?? STYLE_DEFAULTS.dayStartHour)) return { state: st, line: '' };
+  const minGap = Number(opts.minIntervalMs ?? STYLE_DEFAULTS.minIntervalMs);
+  if (Number(bucket.lastPromptAt) && at - Number(bucket.lastPromptAt) < minGap) return { state: st, line: '' };
   if (bucket.selfN < Number(opts.minSelf ?? STYLE_DEFAULTS.minSelf)) return { state: st, line: '' };
 
   const selfAvg = avg(bucket.selfLens);
@@ -93,16 +105,22 @@ export function styleLine(state, { key, at = Date.now(), opts = {} } = {}) {
   const listRatio = bucket.selfN ? bucket.selfList / bucket.selfN : 0;
   const qRatio = bucket.selfN ? bucket.selfQ / bucket.selfN : 0;
 
+  // 2026-11-06 老大要求：从「给她一句结论」改成「给她事实、让她自己判断」。
+  // 原来是「短一点，或者只说半句」——那是命令，而且她照着背就成了另一种套路。
+  // 现在只摆数据、把判断权还给她；「这种说法几次有人接」由 bridge 追加因果数据。
+  const isLong = otherAvg > 6 && selfAvg > otherAvg * Number(opts.longRatio ?? STYLE_DEFAULTS.longRatio);
+  const isSelfy = bucket.selfN >= 10 && (Number(bucket.selfFirst || 0) / bucket.selfN) >= 0.5;
+  const isListy = listRatio >= Number(opts.listRatio ?? STYLE_DEFAULTS.listRatio);
+  const isQuiet = bucket.selfN >= 6 && qRatio < 0.1;
   let line = '';
-  if (otherAvg > 6 && selfAvg > otherAvg * Number(opts.longRatio ?? STYLE_DEFAULTS.longRatio)) {
-    line = '\n【说话的节奏】你最近几条比群里长不少，像在解释。短一点，或者只说半句，剩下的让他们问。\n';
-  } else if (listRatio >= Number(opts.listRatio ?? STYLE_DEFAULTS.listRatio)) {
-    line = '\n【说话的节奏】你最近几条里，有一半在列点。聊天不是写方案——拆成一句一句说，或者只说一条。\n';
-  } else if (bucket.selfN >= 6 && qRatio < 0.1) {
-    line = '\n【说话的节奏】你最近几乎不问问题。聊天可以只接半句，也可以反问一句；不用每条都答完整。\n';
+  if (isLong || isSelfy || isListy || isQuiet) {
+    line = `\n【你最近说话的样子】\n`
+      + `- 你最近 ${bucket.selfN} 条，中位 ${Math.round(selfAvg)} 字；群里中位 ${Math.round(otherAvg)} 字\n`
+      + `- 问句 ${bucket.selfQ} 条、列点 ${bucket.selfList} 条\n`;
   }
   if (!line || dailyLimit < 1) return { state: st, line: '' };
   bucket.lastPromptDay = dayKey(at);
+  bucket.lastPromptAt = at;
   return { state: st, line };
 }
 

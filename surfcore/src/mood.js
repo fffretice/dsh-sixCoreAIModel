@@ -46,7 +46,7 @@ function gain(base, state, target = 0.5, spread = 0.25) {
   return base * Math.max(0.4, sensitivity) * jitter(1, spread);
 }
 
-// 2026-10-31：主人说她是「常人两倍精力」（天运）。做法不是把数字乘 2，
+// 2026-10-31：老大说她是「常人两倍精力」（天运）。做法不是把数字乘 2，
 // 而是把基线抬高一档、事件消耗减半、体力偏差缩小 —— 她跑一天还有余力做自己的事。
 function energyBaseline(date = new Date()) {
   const raw = _energyBaselineRaw(date);
@@ -146,7 +146,7 @@ export function tick(mood, now = Date.now()) {
   if (m.asleep) {
     if (sleepFinished(m, now)) return wakeUp(tickBase, now);
     const d = { ...m.dims };
-    // 2026-11-03：主人要求自然恢复速度降 20%（0.55 → 0.44）。她精力太足，钱包顶不住。
+    // 2026-11-03：老大要求自然恢复速度降 20%（0.55 → 0.44）。她精力太足，钱包顶不住。
     d.energy = clamp01(d.energy + dtH * 0.44);
     d.patience = clamp01(d.patience + dtH * 0.5);
     d.mood = clamp01(d.mood + (0.5 - d.mood) * Math.min(1, dtH * 0.3));
@@ -157,16 +157,18 @@ export function tick(mood, now = Date.now()) {
   const d = { ...m.dims };
 
   const target = clamp01(energyBaseline(new Date(now)) + TRAIT.energyBias);
-  // 2026-11-03：主人要求自然恢复速度降 20%——时间常数 1.2h → 1.5h（1.2/0.8）。
+  // 2026-11-03：老大要求自然恢复速度降 20%——时间常数 1.2h → 1.5h（1.2/0.8）。
   const k = Math.min(1, dtH / 1.5);            // 1.5 小时内回到基线（原来 1.2 小时）
   d.energy = clamp01(d.energy + (target - d.energy) * k);
   d.patience = clamp01(d.patience + dtH * 0.60);
   // 耐心是短期耐力：没被要求做事时会慢慢松下来，也不钉在 100%（2026-10-31）
   const idleAskH = Math.max(0, (now - Number(m.lastAskedAt || now)) / 3600000);
   if (idleAskH > 2) d.patience = clamp01(d.patience + (0.65 - d.patience) * Math.min(1, dtH * 0.12));
-  if (d.patience > 0.9) d.patience = 0.9;
-  d.curiosity = clamp01(d.curiosity - dtH * 0.10);        // 好奇回落（2026-10-31：0.05 太慢，长期钉在顶上）
-  if (d.curiosity < 0.12) d.curiosity = 0.12;             // 留一点底：人不会对什么都没兴趣
+  if (d.patience > 0.85) d.patience = 0.85; // 2026-11-06：0.9 顶格太久，降到 0.85 留出波动
+  // 2026-11-06：半夜没有新信息，好奇不该被睡眠吃掉一半。
+  const nightDecay = (() => { const h = new Date(now).getHours(); return h >= 23 || h < 8; })();
+  d.curiosity = clamp01(d.curiosity - dtH * (nightDecay ? 0.03 : 0.06));
+  if (d.curiosity < 0.15) d.curiosity = 0.15;             // 2026-11-06：地板 0.12 → 0.15
   if (d.curiosity > 0.9) d.curiosity = 0.9;                // 上限 0.9：别长期钉在 100%
   d.mood = clamp01(d.mood + (0.55 - d.mood) * Math.min(1, dtH * 0.25));  // 心情回中性更快、目标略高
   // 2026-10-30 修：原来用「距今多久」当步长（累计），静越久扣得越狠，等于双倍计。
@@ -180,9 +182,9 @@ export function tick(mood, now = Date.now()) {
   // 2026-11-03（A）：恢复门槛 4.2 分钟 → 1 分钟。
   // 下午去掉冷却后，她连说 40 句扣了 0.6，而恢复要「安静 4.2 分钟」——
   // 她一直在说话，quietH 永远凑不够，social 从 0.66 一路掉到 0 并卡死。
-  let socialGain = quietH > 0.017 ? 0.15 : 0;
+  let socialGain = quietH > 0.017 ? 0.08 : 0; // 2026-11-06：0.15 → 0.08，恢复太快导致贴顶
   if (d.social < 0.25) socialGain *= 1.8;      // 见底加速
-  if (d.social > 0.85) socialGain *= 0.3;      // 快满时放缓
+  if (d.social > 0.75) socialGain *= 0.3;      // 2026-11-06：0.85 → 0.75 提前放缓
   d.social = clamp01(d.social + dtH * socialGain);
   // 耐心见底 → 心情被拖累：改成按时间（每 5 分钟最多一次），不再按事件次数
   if (d.patience < 0.2) {
@@ -193,7 +195,7 @@ export function tick(mood, now = Date.now()) {
 
   const coupled = couple(d, { dtH });
   if (coupled.curiosity > 0.92) coupled.curiosity = 0.92;
-  // 2026-11-03 晚：主人要求上限放到 100%。
+  // 2026-11-03 晚：老大要求上限放到 100%。
   // 0.88 是 11-02 为了压「吸收态」留的余量——但那一版同时把「有人说话时 socialGain = 0」
   // 加上了，吸收态的前提（安静几小时自己涨满）已经不成立，余量没必要再留。
   // 现在只保留软上限：>0.85 时恢复速率 ×0.3（上面 socialGain 那段），到 1.0 自然停住。
@@ -251,7 +253,7 @@ export function onSocial(mood, now = Date.now()) {
   // 被陪 → 电量下降（被满足）；心情因为被陪而小幅上涨（越好越不明显，避免刷消息把心情刷满）。
   // 2026-10-31 第二次修：加 2 分钟冷却。之前群里每来一条消息就扣 0.008，刷屏几分钟就归零；
   // 更糟的是 lastSocialAt 被不停刷新，quietH 永远到不了「安静」那档，恢复永远是最慢的 0.06/h。
-  // 2026-11-03：主人要求先去掉 2 分钟冷却，跑一天看看。
+  // 2026-11-03：老大要求先去掉 2 分钟冷却，跑一天看看。
   // 原来每来一次「被回复」都会重置 lastSocialAt，而 tick 里 quietH > 0.07h（4.2 分钟）
   // 才开始恢复——所以冷却一去，扣得勤、回得慢，social 应该能真掉下来。
   // 注意副作用：lastSocialAt 现在会被每次回复刷新，恢复窗口更难凑齐，这是预期内的。
@@ -260,7 +262,8 @@ export function onSocial(mood, now = Date.now()) {
   // 同期耐心回了 32 个点）。1 分钟的好处是：跟 tick 的恢复门槛（安静 1 分钟）正好对齐——
   // 冷静一分钟就开始回，同时避免「连着被回十几条」把值打到地板。
   const lastAt = Number(mood?.lastSocialAt || 0);
-  if (lastAt && now - lastAt < 60 * 1000) return mood;
+  // 2026-11-07：一对一长聊时每分钟都扣，20 分钟就能打到底；改成 5 分钟最多一次。
+  if (lastAt && now - lastAt < 300 * 1000) return mood;
   const m0 = Math.min(1, Math.max(0, Number(mood?.dims?.mood ?? 0.55)));
   const moodGain = 0.012 * (1 - m0);
   // 2026-11-02：−0.006 → −0.015。原来一次被陪只掉 0.006，而一次 tick 涨 0.0067，
@@ -269,7 +272,7 @@ export function onSocial(mood, now = Date.now()) {
   // social 归零等于 drive 的社交项彻底没了，她就再也不主动了。
   const SOCIAL_FLOOR = 0.15;
   const cur = Number(mood?.dims?.social ?? 0.5);
-  const step = cur <= SOCIAL_FLOOR ? 0 : -0.015;
+  const step = cur <= SOCIAL_FLOOR ? 0 : -0.015; // 2026-11-07：−0.03 → −0.015（长聊打到底太快），配合 5 分钟冷却
   const next = impulse(mood, { social: step, mood: moodGain, met: 1 }, now);
   if (Number(next?.dims?.social) < SOCIAL_FLOOR) {
     next.dims = { ...next.dims, social: SOCIAL_FLOOR };
@@ -284,10 +287,18 @@ export function onSocial(mood, now = Date.now()) {
  *   没用 → 好奇 -0.03（白费力气，稍微收敛）
  * 依据：奖赏预测误差会调节后续探索；不区分「有用/没用」，好奇就只是个会衰减的标量。
  */
+/** 2026-11-06：遇到「我不懂」的瞬间——信息缺口本身就是好奇的燃料。
+ *  来源：她自己说不知道 / 主动去查 / 写进笔记。由桥接判断后调用。 */
+export function onCuriosityGap(mood, { weight = 0.06 } = {}, now = Date.now()) {
+  const w = Math.max(0, Math.min(0.12, Number(weight) || 0.06));
+  return impulse(mood, { curiosity: w }, now);
+}
+
 export function onResearchOutcome(mood, { useful = true } = {}, now = Date.now()) {
   // 2026-10-31 修正：查到了 = 信息缺口闭合，好奇该下降，而不是继续涨。
   // 有用 → 好奇 −0.06 + 心情 +0.02（「弄明白了」的满足）；没用 → 好奇 +0.02（还是想知道）。
-  return impulse(mood, useful ? { curiosity: -0.06, mood: 0.02 } : { curiosity: 0.02 }, now);
+  // 2026-11-06：查到只算「缺口闭合」，不再把好奇砍一大块；没查到说明还勾着
+  return impulse(mood, useful ? { curiosity: -0.02, mood: 0.02 } : { curiosity: 0.03 }, now);
 }
 
 export function onUnknown(mood, now = Date.now()) {
@@ -303,10 +314,10 @@ export function onIgnored(mood, now = Date.now()) {
 
 /** 是否该睡了：耐心见底或精力耗尽 → 撑不住了。 */
 /**
- * 三值都低时的休息提示（2026-11-03 主人要求）。
+ * 三值都低时的休息提示（2026-11-03 老大要求）。
  *
  * 观察到的问题：她刚恢复一点就开始消耗，长期停在"精力/耐心都不好"的状态里，
- * 说话语气和态度都差。主人判断这不是意志力问题，是**没有规划休息**。
+ * 说话语气和态度都差。老大判断这不是意志力问题，是**没有规划休息**。
  *
  * 所以不给规则，只报事实 + 留一条出口：
  *   · 告诉她三个值都低了（客观）
@@ -410,10 +421,10 @@ export function sampleBehavior(mood) {
 
 /** 注入：状态 + 行为倾向（不报数字、不许念出来）。 */
 /**
- * 耐心低时「对谁」语气不同（2026-11-03 主人要求）。
+ * 耐心低时「对谁」语气不同（2026-11-03 老大要求）。
  *
  * 关键区分：
- *   · 对主人 —— 会烦，但**照样学**。语气懒/敷衍/撒娇式抱怨，底子是亲近的。
+ *   · 对老大 —— 会烦，但**照样学**。语气懒/敷衍/撒娇式抱怨，底子是亲近的。
  *   · 对群友 —— 推脱概率随耐心线性上升，耐心见底时「不要有求必应」那几条会全力触发。
  *
  * 全部写成「可以 / 倾向于」，不写「必须」——只给模糊的倾向，具体怎么说交给她自己。
@@ -483,7 +494,8 @@ export function moodPromptLine(mood) {
   if (b.terse) behave.push('说话短一点，能一个字答完就一个字；不想解释、不想展开');
   else if (b.talky) behave.push('愿意多说两句，接得住话');
   if (d.mood < 0.35) behave.push('容易想起不太顺的事，语气会有点沉');
-  if (!b.initiate) behave.push('不主动起话头，除非被叫到');
+  // 2026-11-06：这条和「不要习惯性潜水」正面冲突，谁生效取决于随机抽样——去掉。
+  // if (!b.initiate) behave.push('不主动起话头，除非被叫到');
   // 配图倾向：由心情/社交决定，不是固定频率（EMA 文献：正性情绪会提高亲和表达）
   if (d.mood > 0.62 && d.social > 0.5) behave.push('手边有合适的图会想甩一张，比多打几个字更顺');
   else if (d.mood < 0.4 || d.energy < 0.35) behave.push('这会儿懒得找图，说话为主');

@@ -10,9 +10,33 @@ This is not another "LLM wired to a chat app" framework. It gives the model an i
 a memory that forgets, a circadian rhythm, and two hands (QQ + Bilibili) — and it makes
 all of those things **interact**, so behaviour changes with state instead of being executed.
 
-Current release: **1.1.0**.
+Current release: **1.2.0**.
 
-## What's new in 1.1
+## What's new in 1.2
+
+- **Memory, two views.** The memory card is rendered per conversation: records carry a structured
+  `originKind`, and the group view physically cannot see private-chat rows (plus a topic index built
+  from group samples only). No text labels, no reminders — the private side simply never enters the
+  group prompt.
+- **Digest v2 — events, not statistics.** The daily writer used to say "we talked about X; 58 messages,
+  you said 76". It now records concrete events (who said what, an agreement, a high-emotion moment,
+  an action she took), unpinned, bounded to 2–3 per conversation and 5 per day.
+- **The ingestion leak is gone.** `inboxSeen` (3,000) was smaller than the read window (4,000) so
+  ~950 lines were re-ingested every round; the hard 2,000-record cap also fought `config.maxRecords`.
+  Both fixed, plus a streaming archive dedupe tool: **139,936 rows → 5,497 unique ids, 116 MB → 4.5 MB**
+  on a real archive, idempotent and backed up.
+- **Topic map that survives eviction.** Topic pages are merged with facts from the hot card and
+  rebuilt index; conflicts mark rows `superseded`, status topics keep only the latest row.
+- **Candidate rules.** Group-learned lines no longer race into the rules core: they enter a candidate
+  pool she decides on at diary time; only direct teaching goes straight in.
+- **Voice trim that stays readable.** Length/compound-sentence interrupts now require the rewritten
+  sentence to be self-contained — no dangling "that price" with the premise deleted.
+- **New web/media helpers**: `html-text.js` (readable body + tables), `image-extract.js` (image URLs,
+  read-only), `screenshot.js` (navigate → settle → capture).
+
+Full changelog: [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md).
+
+### Highlights in 1.1
 
 - **Rules finally reach the model.** Root cause fix: the rules file (5,972 chars) was only ever
   read by the console — the inject path used a hard-sliced character card, so every rule change

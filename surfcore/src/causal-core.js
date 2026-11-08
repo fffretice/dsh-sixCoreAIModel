@@ -95,7 +95,7 @@ export function dayKey(ts = Date.now()) {
 }
 
 export function emptyState() {
-  return { version: CAUSAL_VERSION, pending: [], log: [], sceneMisses: [], stats: { bySource: {}, byStyle: {}, lastPromptDay: '', lastIgnoredAt: 0, calibration: { saidYes: { n: 0, hit: 0 }, saidNo: { n: 0, hit: 0 } } } };
+  return { version: CAUSAL_VERSION, pending: [], log: [], sceneMisses: [], guessMisses: [], stats: { bySource: {}, byStyle: {}, lastPromptDay: '', lastIgnoredAt: 0, calibration: { saidYes: { n: 0, hit: 0 }, saidNo: { n: 0, hit: 0 } } } };
 }
 
 /** 规整从磁盘读到的状态，防止旧版本/坏文件把逻辑搞崩。 */
@@ -104,15 +104,20 @@ export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return base;
   const pending = Array.isArray(raw.pending) ? raw.pending.filter((x) => x && x.key && Number(x.at)) : [];
   const log = Array.isArray(raw.log) ? raw.log.filter((x) => x && x.key && Number(x.at)) : [];
-  // 2026-11-04：场合失误（把只该私下说的话发进群、被主人点出来）。
+  // 2026-11-04：场合失误（把只该私下说的话发进群、被老大点出来）。
   const sceneMisses = Array.isArray(raw.sceneMisses)
     ? raw.sceneMisses.filter((x) => x && Number(x.at) && String(x.mine || '').trim()).slice(-20)
+    : [];
+  // 2026-11-06：认错人/认错东西被纠正。只记事实，不评分。
+  const guessMisses = Array.isArray(raw.guessMisses)
+    ? raw.guessMisses.filter((x) => x && Number(x.at) && String(x.detail || '').trim()).slice(-20)
     : [];
   return {
     version: CAUSAL_VERSION,
     pending: pending.slice(-CAUSAL_DEFAULTS.maxPending),
     log: log.slice(-CAUSAL_DEFAULTS.maxLog),
     sceneMisses,
+    guessMisses,
     stats: {
       bySource: raw.stats && typeof raw.stats.bySource === 'object' ? raw.stats.bySource : {},
       byStyle: raw.stats && typeof raw.stats.byStyle === 'object' ? raw.stats.byStyle : {},
@@ -124,6 +129,7 @@ export function normalizeState(raw) {
       lastTimePromptAt: Number(raw.stats?.lastTimePromptAt || 0),
       lastScenePromptAt: Number(raw.stats?.lastScenePromptAt || 0),
       lastRequestPromptAt: Number(raw.stats?.lastRequestPromptAt || 0),
+      teasePromptAt: raw.stats && typeof raw.stats.teasePromptAt === 'object' ? raw.stats.teasePromptAt : {},
       // 2026-11-02：预测校准账。她猜「会/不会有人接」，对账后记在 hit/n。
       calibration: {
         saidYes: {
@@ -279,7 +285,7 @@ export function noteSpoke(state, { key, at = Date.now(), text = '', echo = false
         lens: compact.length,
         isQ: /[？?]/.test(t),
         isList: /^[-•·\d]|、|；/.test(t.trim()) || t.split('\n').filter(Boolean).length >= 3,
-        // 2026-11-02：主人说「不止句长，还有说话方式」。这里加几个能自动判、又确实像人的：
+        // 2026-11-02：老大说「不止句长，还有说话方式」。这里加几个能自动判、又确实像人的：
         // 语气词（口语感）、笑/草（网络感）、反应式开场（唔/诶/哦）、引用（对话感）。
         hasParticle: /[啊吧呢嘛呀哦啦呗捏]/.test(compact),
         hasLaugh: /草|哈哈|笑死|绷|乐|6\b/.test(compact),
@@ -301,6 +307,7 @@ export function noteSpoke(state, { key, at = Date.now(), text = '', echo = false
     if (at - Number(p.at) > CAUSAL_DEFAULTS.windowMs * 2) continue;
     p.spoke = true;
     p.spokeAt = at;
+    p.spokeText = String(t).slice(0, 120);
     if (style) p.style = style;
     if (predict !== null) p.predict = predict;
     break;
@@ -343,13 +350,52 @@ function settleOne(state, p, { at, outcome }) {
  *   spoke  → replied
  *   !spoke → came（场子自己热了，不算她的功劳）
  */
-export function settleIncoming(state, { key, at = Date.now() } = {}) {
+/** 两句话共用的 2 字片段个数——判「这句是不是在接她那句」用的。 */
+function sharedBigrams(a, b) {
+  const A = String(a || '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+  const B = String(b || '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+  if (A.length < 2 || B.length < 2) return 0;
+  const set = new Set();
+  for (let i = 0; i < A.length - 1; i += 1) set.add(A.slice(i, i + 2));
+  const seen = new Set();
+  let hit = 0;
+  for (let i = 0; i < B.length - 1; i += 1) {
+    const g = B.slice(i, i + 2);
+    if (set.has(g) && !seen.has(g)) { hit += 1; seen.add(g); }
+  }
+  return hit;
+}
+
+/**
+ * 这条消息是不是在「接她」（2026-11-04）。
+ * 老大：「群里只要有人说话就算接住，不代表接的是她。」
+ * 判定不靠语义理解，只看四个客观信号：引用她 / 点名她 / 和她刚才那句有字面重叠 / 短时间内出现「你」。
+ */
+export function looksLikeReplyTo(pending, { text = '', quoteTargetIsSelf = false, direct = false, at = Date.now() } = {}) {
+  if (quoteTargetIsSelf) return true;
+  if (direct) return true;
+  const mine = String(pending?.spokeText || '');
+  const gap = at - Number(pending?.spokeAt || pending?.at || 0);
+  const overlap = mine ? sharedBigrams(mine, text) : 0;
+  if (overlap >= 2) return true;
+  // 短句借字少：刚说完 2 分钟内、只共用一个词、对方这句也不长，也算在接她。
+  // （「不扇，嫌累」→「嫌累就别扇了哈哈哈」只共用「嫌累」，但明显是接着说的）
+  const nextLen = String(text || '').replace(/\s+/g, '').length;
+  if (overlap >= 1 && gap < 120 * 1000 && nextLen <= 20) return true;
+  if (String(text || '').includes('你') && gap < 180 * 1000) return true;
+  return false;
+}
+
+export function settleIncoming(state, { key, at = Date.now(), text = '', quoteTargetIsSelf = false, direct = false } = {}) {
   const st = normalizeState(state);
   const events = [];
   const keep = [];
+  // 私聊里来的消息本来就是冲她来的；群里要过一道相关性——别人自顾自聊不算有人接她。
+  const isPrivate = String(key || '').startsWith('private:');
   for (const p of st.pending) {
     if (p.key !== key) { keep.push(p); continue; }
     if (at - Number(p.at) > CAUSAL_DEFAULTS.windowMs) { keep.push(p); continue; }
+    if (!isPrivate && !looksLikeReplyTo(p, { text, quoteTargetIsSelf, direct, at })) { keep.push(p); continue; }
     events.push(settleOne(st, p, { at, outcome: p.spoke ? 'replied' : 'came' }));
   }
   st.pending = keep.slice(-CAUSAL_DEFAULTS.maxPending);
@@ -379,6 +425,27 @@ export function expirePending(state, { at = Date.now() } = {}) {
 }
 
 /** 这条结算值不值得给一次「被冷落」的情绪反馈。 */
+/** 认错人 / 认错东西，被群里纠正了一次。只记事实。 */
+export function noteGuessMiss(state, { key = '', at = Date.now(), detail = '', scene = '' } = {}) {
+  const st = normalizeState(state);
+  st.guessMisses.push({ at, key: String(key || ''), detail: String(detail || '').slice(0, 60), scene: String(scene || '').slice(0, 40) });
+  if (st.guessMisses.length > 20) st.guessMisses = st.guessMisses.slice(-20);
+  return st;
+}
+
+/** 最近这类判断出过几次错——只陈述，不建议她说什么。 */
+export function guessMissLine(state, { at = Date.now(), scene = '' } = {}) {
+  const st = normalizeState(state);
+  const week = 7 * 24 * 3600 * 1000;
+  const recent = st.guessMisses.filter((x) => at - Number(x.at) < week);
+  if (!recent.length) return '';
+  const same = scene ? recent.filter((x) => x.scene === scene) : [];
+  const pick = same.length ? same : recent;
+  const last = pick[pick.length - 1];
+  const when = new Date(Number(last.at)).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `- 最近这种判断你出过错：${when} 你说「${String(last.detail || '').slice(0, 40)}」，被纠正了${pick.length > 1 ? `（同类共 ${pick.length} 次）` : ''}`;
+}
+
 export function shouldFeelIgnored(state, event, { at = Date.now() } = {}) {
   const st = normalizeState(state);
   if (!event || event.outcome !== 'no_reply') return false;
@@ -430,12 +497,12 @@ export function promptLine(state, { isPrivate = false, at = Date.now(), opts = {
 /**
  * 「你说话的样子」——把风格统计接进因果核心（2026-11-02）。
  *
- * 主人问「群友的说话模式能不能学进去」。原来的 style-core 只比「谁长谁短」，
+ * 老大问「群友的说话模式能不能学进去」。原来的 style-core 只比「谁长谁短」，
  * 没有结果反馈；这里改成**按结果**：短句/长句/问句这几种说法，哪一种更容易被人接。
  *
  * 和 promptLine 的区别：promptLine 每天一句、说的是「某次行动」；
  * 这个是**统计口径**：每天最多一次，样本不到 8 次不说——宁可不说，也别拿噪声指导她。
- * （原来写的是三天，主人说太慢：她一天说 40 多句，一天就够攒样本了。）
+ * （原来写的是三天，老大说太慢：她一天说 40 多句，一天就够攒样本了。）
  */
 export function styleStatLine(state, { at = Date.now(), minN = 8, cooldownMs = 24 * 3600 * 1000, opts = {} } = {}) {
   const st = normalizeState(state);
@@ -546,9 +613,9 @@ export function predictionLine(state, { at = Date.now(), minN = 8, cooldownMs = 
 }
 
 /**
- * 场合失误：她说了只该私下讲的话，被主人当场点出来（2026-11-04）。
+ * 场合失误：她说了只该私下讲的话，被老大当场点出来（2026-11-04）。
  *
- * 主人原话：「如果能让她用因果核心进行后果预判，比什么规则都好。」
+ * 老大原话：「如果能让她用因果核心进行后果预判，比什么规则都好。」
  * 所以这里不写规则，只记「说过什么 → 他回了什么」这一对事实，
  * 在下次开口前把具体的上一次递回给她——让她自己推后果。
  */
@@ -556,7 +623,7 @@ export function noteSceneMiss(state, { key = '', at = Date.now(), mine = '', his
   const st = normalizeState(state);
   const mineText = String(mine || '').trim().slice(0, 160);
   if (!mineText) return { state: st, added: false };
-  // 同一条消息别重复记（主人可能连发两句）
+  // 同一条消息别重复记（老大可能连发两句）
   if (st.sceneMisses.some((m) => m.mine === mineText && Math.abs(Number(m.at) - at) < 10 * 60 * 1000)) {
     return { state: st, added: false };
   }
@@ -598,7 +665,7 @@ export function sceneLine(state, { at = Date.now(), maxAgeDays = 14, cooldownMs 
 /**
  * 「别人让你做事之后」（2026-11-04）。
  *
- * 主人：「能不能让她多用因果核心来判断。」所以把她自己攒的那点经验递回去：
+ * 老大：「能不能让她多用因果核心来判断。」所以把她自己攒的那点经验递回去：
  * 拒绝过几次、拒绝之后对方还接着说的比例——不是评分，是她自己看。
  * bySource 里的 `request:refuse` / `request:accept` 由桥接在她回话时记。
  */

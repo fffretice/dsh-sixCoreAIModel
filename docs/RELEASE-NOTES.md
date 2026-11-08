@@ -5,7 +5,98 @@ and how to re-verify.
 
 ---
 
-## 0. Version 1.1.0 (2026-11-04)
+## 0. Version 1.2.0 (2026-11-08)
+
+Cut from the same deployment, four days after 1.1.0. The headline is the **memory core**: one card,
+two views, and a digest that writes events instead of statistics. 64 files changed, **+5,571 / −534**;
+seven new modules under `src/`. Sections §1–§6 below still hold.
+
+### 0.1 Memory — one card, two views
+
+- **Separate views per conversation.** The card is rendered through `injectView` (`group` / `private`);
+  records carry `originKind`, and `canEnterGroupView()` keeps private-origin rows out of the group view
+  while the private view still sees everything. Group view also drops the stat lines.
+- **Topic directory per view.** `memory/topics/_index.md` for private, `_index-group.md` for groups:
+  the group index only lists topics that have a group/public sample.
+- **Why**: she used to quote private-chat summaries in group chats ("still waiting for the 16th" —
+  said to a group that never heard about it).
+
+### 0.2 Memory — the ingestion leaks
+
+- **`inboxSeen` was smaller than the read window.** The maintainer reads the last 4,000 inbox lines but
+  only 3,000 seen-keys were kept, so ~950 lines were re-ingested every round. `INBOX_SEEN_KEEP = 5000`.
+- **The 2,000-record hard cap fought `config.maxRecords`.** It is now a last-resort guard
+  (`NORMALIZE_RECORDS_SAFETY_CAP = 20000`); the real limit is the config value.
+- **Archive dedupe**: `scripts/memory-dedupe-archive.mjs` — two streaming passes, same id keeps the
+  fullest row. On the real archive it collapsed 139,936 rows to 5,497 unique ids (116 MB → ~4.5 MB).
+
+### 0.3 Memory — digest v2: events, not statistics
+
+- New module `src/memory-digest.js` (`DIGEST_VERSION = 2`, pure functions).
+- The old digest wrote "we talked about…; 58 messages in total, you said 76" — no information, but it
+  occupied the injection budget and was pinned forever. Now each note is one concrete event (who said
+  what, ≤30 chars of the original line / an agreement / a high-emotion moment / an action she took),
+  carries `originKind` + `conversationKey`, is **not** pinned, importance 60, at most 2–3 points per
+  conversation and 5 per day. No events that day → no note.
+- `scripts/test-memory-digest.mjs` covers it.
+
+### 0.4 Memory — topic map
+
+- New module `src/memory-topics.js`: `memory/topics/<topic>.md` + an index, rebuilt from the hot card
+  *and* the existing topic pages, so old facts survive a card eviction. Conflicting newer facts mark the
+  old line `superseded`; state topics (e.g. avatar) keep only the newest fact.
+- The built-in topic list is an **example** — edit `CORE_TOPICS` for your own character.
+- `scripts/test-memory-topics-view.mjs` covers the per-view index.
+
+### 0.5 Learning and rules
+
+- New module `src/pending-rules.js`: owner-directed teaching (private chat / @ / "you") goes straight
+  into the rules core; things overheard in groups go into a **candidate pool** and she decides in her
+  diary whether to adopt them. The text classifier was at ~9/17 accuracy — adding regexes made it worse,
+  and unvetted rules pushed the rules file past its 6,000-character budget in a single day.
+
+### 0.6 Speech
+
+- New module `src/voice-trim.js`: when a message is cut for length, or a "fact + comment" sentence is
+  split, the hint now demands the reminder survive on its own — no dangling "that price" / "that one".
+  Two safe rewrites, plus a self-check. `scripts/test-voice-trim.mjs` guards the wording.
+
+### 0.7 Web and media
+
+- New modules: `src/html-text.js` (HTML → readable text + tables for `web_fetch`),
+  `src/image-extract.js` (image URLs from search results and pages, read-only, no download),
+  `src/screenshot.js` (headless Chrome over the DevTools protocol; navigates, waits for load, then
+  shoots — `--screenshot` waits for ad/tracker scripts and can hang for a minute).
+- `plugins/surfcore` gains the matching tool wiring; `scripts/test-memory-notify-endpoint.mjs` pins the
+  memory-capacity notification contract.
+
+### 0.8 Upgrade notes
+
+- No breaking config changes: new keys are optional and default to the 1.1.0 behaviour.
+- First start does a one-off memory-card maintenance (migration marker + backup of the old card).
+- If your card predates this release and you have a large archive, run
+  `node scripts/memory-dedupe-archive.mjs` (dry-run by default) once.
+
+### 0.9 Sanitisation (this pass)
+
+Same method as before: copy from the live deployment, strip inside the copy, never touch the running
+instance. New leaks caught this round: three group ids and the owner's QQ baked into prompt code,
+a real Windows username in a test fixture, a live SnowLuma token and search key in two scripts,
+`/Users/<name>` defaults in two modules, and character/interest names in comments and fixtures.
+Character names in prompt code now come from the current role; interest word lists come from
+`socialV2.interests`.
+
+**Current audit result: high 0 / mid 255 / low 3.** Every mid is still a test fixture or an example id.
+
+Not packaged this round (machine-specific ops scripts, kept out on purpose): `assistant-screen.mjs`,
+`injection-audit.mjs`, `memory-audit.mjs`, `memory-cleanup-dryrun.mjs`, `memory-crossview-*.mjs`,
+`memory-status-proto.mjs`, `memory-topics-proto.mjs`, `night-selfcheck.sh`,
+`rollback-billion-context.sh`, `rules-audit.mjs`, `rules-impression.mjs` (+ its plan JSON),
+`token-baseline.mjs`, `public/console-v2-draft.html`.
+
+---
+
+## 0A. Version 1.1.0 (2026-11-04)
 
 Re-cut from the same deployment, three days later. §1–§6 below still hold; this section covers
 **what actually changed between 1.0.0 and 1.1.0**.

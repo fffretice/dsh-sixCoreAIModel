@@ -175,7 +175,7 @@ async function loadRules() {
       const stale = r.idleDays !== null && r.idleDays >= 10;
       const color = never ? '#e26d6d' : stale ? '#f0a35f' : '#8b919a';
       const when = never ? '从没用过' : (r.idleDays === 0 ? '今天用过' : `${r.idleDays} 天前`);
-      const sec = r.section === 'owner' ? '主人' : r.section === 'group' ? '群里' : '印象';
+      const sec = r.section === 'owner' ? '老大' : r.section === 'group' ? '群里' : '印象';
       const text = String(r.text || '').slice(0, 46);
       return `<div class="row"><span class="k" style="min-width:34px">${sec}</span><span class="v" style="color:${color};text-align:left;font-size:12px">${text} <span style="opacity:.55">· ${when}</span></span></div>`;
     }).join('');

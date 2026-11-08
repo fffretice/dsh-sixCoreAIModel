@@ -1,11 +1,11 @@
 /**
- * 学习账本（2026-10-30 主人定的：
+ * 学习账本（2026-10-30 老大定的：
  *   「教了就学太乖了，和懒的性格不符；现实里要先不情愿，被教多次才真学会，
  *     而且这个『多次』不该是某个具体数值。」
  *
  * 所以：
  *   · 每条要学的东西有自己的阈值，**随机生成**（2.2~4.6），不是一个固定次数；
- *   · 主人的话权重 1.0，群友的话 0.35（她更听主人的）；
+ *   · 主人的话权重 1.0，群友的话 0.35（她更听老大的）；
  *   · 和已有习惯冲突的，学得更慢（×0.6）；
  *   · 阶段由「权重 / 阈值」推出来，用来决定她话里的态度，而不是硬写次数。
  */
@@ -38,11 +38,11 @@ function normalizeTopic(text) {
 /**
  * 判断一句话是不是在「教她」。命中返回提取出的主题，否则 null。
  *
- * 2026-11-02 分两档（主人之前那句「只有否定句算教学，大多数教学会被略过」是对的）：
+ * 2026-11-02 分两档（老大之前那句「只有否定句算教学，大多数教学会被略过」是对的）：
  *
  *   strict = true   只认否定 / 禁止句。给**群里**用——群友的闲聊、玩梗、复读很容易
  *                   长得像「教」，严一点宁可漏。
- *   strict = false  认「教学语气」：不要/别/应该/以后/记得/可以…。给**主人**用——
+ *   strict = false  认「教学语气」：不要/别/应该/以后/记得/可以…。给**老大**用——
  *                   他教的大多数是正面表述（「心情好可以给我发语音包」「看到复读就跟着复读」），
  *                   只认否定句会把它们全漏掉。他有事就说，本来就少，放宽的代价很低。
  *
@@ -74,7 +74,7 @@ function extractTeaching(text, { strict = true } = {}) {
   // ③ 语气词结尾 = 没说完
   // 2026-11-04：「吧」单独处理。它是祈使句里最常见的软化词
   //（「以后大半夜尽量做自己的事情吧」「半夜别给我留言吧」），
-  // 一刀切会把真规矩漏掉——主人 11-04 早上教的那句就是这么丢的。
+  // 一刀切会把真规矩漏掉——老大 11-04 早上教的那句就是这么丢的。
   // 去掉「吧」之后太短、又没有禁止词的，才是真的没说完。
   if (/[呢吗呀啊嘛]$/.test(topic)) return null;
   if (/吧$/.test(topic)) {
@@ -94,13 +94,13 @@ function extractTeaching(text, { strict = true } = {}) {
 /**
  * 这条教学和她最近在干的事沾不沾边（2026-11-03）。
  *
- * 主人的原话：「加进账本之前能不能反思一下值不值得，学会了有什么用」。
+ * 老大的原话：「加进账本之前能不能反思一下值不值得，学会了有什么用」。
  * 因果核心的 detail 只存工具参数（搜索词），拿它当语料不合适；
  * 真正能当证据的是**她自己最近说过的话**——教到点上的事她一定聊过。
  *
  * 只做加权，不做拦截：
  *   沾边（≥1 个实词出现在她最近说过的话里）→ 1.35（更快到 adopted）
- *   不沾边 + 含技术词                  → 0.5（大概率是主人在跟别人聊技术）
+ *   不沾边 + 含技术词                  → 0.5（大概率是老大在跟别人聊技术）
  *   其余                                → 1.0
  */
 const TECH_WORDS = /(代码|接口|token|Token|模型|内存|API|api|AI|ai|部署|仓库|commit|prompt|提示词|参数|日志|服务|进程|端口|显卡|显存)/;
@@ -147,9 +147,37 @@ function learnState(item) {
 }
 
 /** 记一次「被教」：返回更新后的条目（纯函数，不改入参）。 */
-export function recordTeaching(ledger, { text, isOwner = false, at = Date.now(), corpus = '' } = {}) {
-  // 主人教的放宽（认「可以/以后/记得」这类正面表述），群里教的收紧（只认否定句）
-  const hit = extractTeaching(text, { strict: !isOwner });
+export function recordTeaching(ledger, { text, isOwner = false, at = Date.now(), corpus = '', context = '' } = {}) {
+  // 老大教的放宽（认「可以/以后/记得」这类正面表述），群里教的收紧（只认否定句）
+  let hit = extractTeaching(text, { strict: !isOwner });
+  let fromContext = false;
+  // 2026-11-04：真人说话是连着的——「可以把她当小孩逗」→「越坏越好」→「多欺负欺负」，
+  // 后两句单看什么都不是，接在上一句后面才明显是指令。
+  // 单独判定不过时，把上一句（只要 20 字）拼在前面再判一次；判定用的是拼起来的整句，
+  // 存下来的 topic 也跟着带上下文，免得以后她醒来只看到一句没头没尾的「多欺负欺负」。
+  if (!hit && isOwner && String(context || '').trim()) {
+    const raw = String(text || '').trim();
+    const ctx = String(context).replace(/\s+/g, '').slice(-40);
+    // 只接短句：长句子单独判不过，多半本来就不是指令
+    // 问句、语气词结尾的不算（「你在干嘛」接在教学后面也不是规矩）
+    const short = raw.replace(/\s+/g, '').length <= 16 && !/[？?呢吗呀啊嘛吧]$/.test(raw);
+    // 上下文里得有真·教学（否则「今天天气不错」也会被当成规矩）
+    const ctxIsTeaching = Boolean(extractTeaching(ctx, { strict: false }));
+    if (short && ctxIsTeaching) {
+      const topic = normalizeTopic(raw);
+      if (topic && topic.length >= 2) {
+        // 存的时候把上下文带上——以后她醒来光看「多欺负欺负」不知道在说谁
+        hit = { topic, raw: `${ctx}，${raw}`.slice(0, 80) };
+        fromContext = true;
+      }
+    }
+  }
+  // 2026-11-04：句子里有「她/他/它」时，必须带上上一句——否则存成「可以把她当小孩逗」，
+  // 她过一会儿在群里看到这句，根本不知道「她」是谁（今晚就是这么丢的）。
+  if (hit && isOwner && /[她他它]/.test(String(text || '')) && String(context || '').trim()) {
+    const ctx = String(context).replace(/\s+/g, '').slice(-40);
+    if (ctx && !hit.raw.includes(ctx)) hit = { ...hit, raw: `${ctx}，${hit.raw}`.slice(0, 80) };
+  }
   if (!hit) return null;
   const items = { ...(ledger?.items || {}) };
   // 先看有没有「说的是同一件事」的老条目（说法不同也只算同一条）
@@ -182,16 +210,16 @@ export function recordTeaching(ledger, { text, isOwner = false, at = Date.now(),
   };
   next.stage = learnState(next);
   items[key] = next;
-  return { ledger: { ...ledger, items }, item: next, changed: !prev.stage || prev.stage !== next.stage };
+  return { ledger: { ...ledger, items }, item: next, fromContext, changed: !prev.stage || prev.stage !== next.stage };
 }
 
 /** 生成注入行：让她知道自己「正处在学的哪个阶段」，态度由阶段决定。 */
 export function learnPromptLine(ledger, { limit = 3 } = {}) {
   const items = Object.entries(ledger?.items || {})
     .map(([k, v]) => ({ key: k, ...v, stage: v.stage || learnState(v) }))
-    // 2026-11-02：主人说过的**直接进规则核心**（noteTeaching 里就是这么干的），账本再列一遍
+    // 2026-11-02：老大说过的**直接进规则核心**（noteTeaching 里就是这么干的），账本再列一遍
     // 只会和她说的相反——规则核心写「这是你的习惯」，账本写「有点印象，但还会忘」。
-    // 所以主人的条目从这里让位，账本只管「群里学的」那一档。
+    // 所以老大的条目从这里让位，账本只管「群里学的」那一档。
     .filter((it) => !(Array.isArray(it.sources) && it.sources.includes('owner')))
     // 2026-11-01：从「最近被教」改成「最可能在用的优先」——
     // 已经成习惯的（adopted）先出现，其次有印象的，最后是还没当回事的；同阶段按时间。

@@ -6,6 +6,87 @@
 
 ---
 
+## 零、版本 1.2.0（2026-11-08）
+
+在 1.1.0 之后四天，从同一套部署上再切一刀。这一版的主角是**记忆核心**：一张卡、两个视图，
+以及「写事件、不写统计」的每日整理。64 个文件，**+5,571 / −534**，`src/` 下新增七个模块。
+下面一至六节的清理原则一条没变。
+
+### 0.1 记忆：一张卡，两个视图
+
+- **按会话分视图**：卡片经 `injectView`（`group` / `private`）渲染，记录带 `originKind`，
+  `canEnterGroupView()` 把私聊来源的行挡在群视图外；私聊视图仍然全都看得到，群视图另外滤掉统计句。
+- **主题目录也分视图**：私聊读 `memory/topics/_index.md`，群聊读 `_index-group.md`，
+  群索引只列「群里有样本」的主题。
+- **为什么**：她以前会在群里复述私聊摘要（比如「还在等 11/16」），而群里根本没人提过。
+
+### 0.2 记忆：两处摄入漏洞
+
+- **`inboxSeen` 比读取窗口小**：维护器每轮读最后 4,000 行 inbox，但只留 3,000 个已见键，
+  窗口边缘约 950 行每轮都被当成新消息重摄。改为 `INBOX_SEEN_KEEP = 5000`。
+- **2,000 条硬帽和 `config.maxRecords` 打架**：现在它只当「防超大文件」的最后一道闸
+  （`NORMALIZE_RECORDS_SAFETY_CAP = 20000`），真正的上限交给 config。
+- **归档去重**：`scripts/memory-dedupe-archive.mjs`，流式两遍扫描，同 id 只留字段最全的一条。
+  实测把 139,936 行压成 5,497 个唯一 id（116 MB → 约 4.5 MB）。
+
+### 0.3 记忆：digest v2，写事件不写统计
+
+- 新模块 `src/memory-digest.js`（`DIGEST_VERSION = 2`，纯函数）。
+- 旧整理写的是「聊到…；一共 58 句，你自己说了 76 句」——没信息量却占注入预算，还被永久 pin 住。
+  现在每条笔记只记一件具体的事（谁说了什么，原话 ≤30 字 / 一个约定 / 情绪浓度高的瞬间 / 她做过的动作），
+  带 `originKind` + `conversationKey`，**不 pin**，importance 60，每会话最多 2–3 条、每天最多 5 条；
+  当天没事件就不写。
+- 单测：`scripts/test-memory-digest.mjs`。
+
+### 0.4 记忆：主题地图
+
+- 新模块 `src/memory-topics.js`：`memory/topics/<主题>.md` + 索引，重建时把**现有主题页**的事实
+  也合并进来，热卡被淘汰不会连带丢历史；新事实与旧行冲突时把旧行标 `superseded`，
+  状态型主题（如头像）只留最新一条。
+- 预置主题表是**示例**，换自己角色的话题请改 `CORE_TOPICS`。
+- 单测：`scripts/test-memory-topics-view.mjs`。
+
+### 0.5 学习与规则
+
+- 新模块 `src/pending-rules.js`：私聊 / @她 / 带「你」的教学直接进规则核心；群里旁听来的进
+  **候选池**，由她在日记里自己决定认不认。文本判别实测约 9/17，继续加正则只会更歪；
+  而未经筛选的规则一天就能把规则文件顶过 6,000 字符预算。
+
+### 0.6 说话
+
+- 新模块 `src/voice-trim.js`：消息被压长度、或「事实 + 评论」被缝成一句时，提示要求压完还能独立看懂，
+  不许留「这价」「这个」这类悬空指代；给两种安全改法 + 自检。`scripts/test-voice-trim.mjs` 锁住文案。
+
+### 0.7 网页与媒体
+
+- 新模块：`src/html-text.js`（HTML → 可读正文和表格，给 `web_fetch` 用）、
+  `src/image-extract.js`（从搜索结果和页面里取图片直链，只读、不下载）、
+  `src/screenshot.js`（headless Chrome + DevTools，先 navigate、等加载、再截图；
+  `--screenshot` 会等广告和统计脚本，能卡一分钟）。
+- `plugins/surfcore` 补上对应工具接线；`scripts/test-memory-notify-endpoint.mjs` 锁住记忆容量通知契约。
+
+### 0.8 升级注意
+
+- 没有破坏性配置变更：新键都可选，不填就是 1.1.0 的行为。
+- 首次启动会做一次记忆卡维护迁移（留迁移标记 + 旧卡备份）。
+- 如果卡是这版之前的、归档又很大，建议手动跑一次 `node scripts/memory-dedupe-archive.mjs`（默认 dry-run）。
+
+### 0.9 这一轮的剥离
+
+方法与之前一致：从线上部署复制，在副本上剥离，运行中的实例一个字节没动。这轮新抓到的泄漏：
+三个群号和主人 QQ 写死在 prompt 代码里、测试夹具里的真实 Windows 用户名、两个脚本里的
+SnowLuma token 与搜索 key、两个模块里 `/Users/<name>` 的默认值、注释与夹具里的角色名和兴趣词。
+prompt 里的角色名现在读当前角色，兴趣词表读 `socialV2.interests`。
+
+**当前审计结果：high 0 / mid 255 / low 3**，mid 仍然全是测试夹具和示例编号。
+
+这轮没打包（只对某台机器有意义的运维脚本）：`assistant-screen.mjs`、`injection-audit.mjs`、
+`memory-audit.mjs`、`memory-cleanup-dryrun.mjs`、`memory-crossview-*.mjs`、`memory-status-proto.mjs`、
+`memory-topics-proto.mjs`、`night-selfcheck.sh`、`rollback-billion-context.sh`、`rules-audit.mjs`、
+`rules-impression.mjs`（及计划 JSON）、`token-baseline.mjs`、`public/console-v2-draft.html`。
+
+---
+
 ## 一、内容来源
 
 来自一台真实运行了五天的人格智能体部署（macOS，单机）。原始目录包括：
