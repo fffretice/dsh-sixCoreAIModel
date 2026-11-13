@@ -11,6 +11,8 @@
 
 当前版本：**1.3.0**。
 
+[安装](INSTALL.zh.md) · [角色卡怎么写](docs/CHARACTER.zh.md) · [自动化与子智能体](docs/AUTOMATION.zh.md) · [Windows 指南](docs/INSTALL-Windows.zh.md) · [macOS 指南](docs/INSTALL-macOS.zh.md)
+
 ## 1.3 新增
 
 - **记忆分得清「谁的记忆」**：群来源记录进入私聊上下文前打上「群 + 说话人」，说话人查不到的直接不注入；

@@ -4,7 +4,7 @@
 > Personality, rules, memory, emotion, causality and narrative, plus the mechanisms that
 > turn a chat model into someone who is *continuously there* instead of answering on demand.
 
-[中文文档](README.zh.md) · [Install](INSTALL.md) · [Character authoring](docs/CHARACTER.md) · [Windows guide](docs/INSTALL-Windows.md) · [macOS guide](docs/INSTALL-macOS.md)
+[中文文档](README.zh.md) · [Install](INSTALL.md) · [Character authoring](docs/CHARACTER.md) · [Automation & sub-agents](docs/AUTOMATION.md) · [Windows guide](docs/INSTALL-Windows.md) · [macOS guide](docs/INSTALL-macOS.md)
 
 This is not another "LLM wired to a chat app" framework. It gives the model an identity,
 a memory that forgets, a circadian rhythm, and two hands (QQ + Bilibili) — and it makes
