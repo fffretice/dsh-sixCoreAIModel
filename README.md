@@ -10,9 +10,33 @@ This is not another "LLM wired to a chat app" framework. It gives the model an i
 a memory that forgets, a circadian rhythm, and two hands (QQ + Bilibili) — and it makes
 all of those things **interact**, so behaviour changes with state instead of being executed.
 
-Current release: **1.2.0**.
+Current release: **1.3.0**.
 
-## What's new in 1.2
+## What's new in 1.3
+
+- **Memory that knows whose memory it is.** Group-sourced records are stamped with group + speaker
+  before they enter her private context; records whose speaker is unknown are dropped. The prompt
+  header states it plainly: what a group member said is not what the owner said.
+- **Continuity without the noise.** The first turn of every conversation carries one real event from
+  the last 48 hours (one line, ≤120 chars, once a day). Rest replay surfaces memories at least seven
+  days old only after 20 quiet minutes; a write-back gate accepts only conclusions, decisions,
+  pitfalls, preferences and agreements.
+- **Emotion with a soft ceiling.** `patience` used to pin at 0.85 for days; it now drifts toward 0.72
+  (recently asked) / 0.80 (idle) and recovers on a half-life instead of a step function.
+- **A voice channel that knows when not to talk.** Local TTS with content-addressed caching (style in
+  the cache key), readable failures that fall back to typing, and a voice-opportunity model: late
+  night / low energy / short replies lower the odds; at most two a day.
+- **Rules and language that earn their place.** Owner teaching passes a gate (core / candidate pool /
+  discard); the rules core was compressed 7,062 → 6,694 chars inside a 7,200 budget; slang injection
+  only carries words seen in recent messages; a bracket-style self-check flags a sentence-tail habit
+  without rewriting a word.
+- **Boundaries that hold.** Private wishes stay out of group prompts; reflections are filtered by
+  origin; a private token used against a group returns 403 + audit; per-group silence stops group
+  outbound only; stickers are told apart from photos; an 8.79 MB image is downscaled to 598 KB.
+  Also new: a read-only memory-DB audit (`scripts/memory-db-audit.mjs`) and an injection audit that
+  reads the delivered prompt rather than a preview.
+
+### Highlights in 1.2
 
 - **Memory, two views.** The memory card is rendered per conversation: records carry a structured
   `originKind`, and the group view physically cannot see private-chat rows (plus a topic index built
