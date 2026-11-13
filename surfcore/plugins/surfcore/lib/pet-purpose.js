@@ -513,7 +513,7 @@ export function createPetPurposeService({ chat, tokenBudget = null, pluginLog = 
       }
       // 模型偶尔会带引号/名字前缀/半句解释；气泡和语音都只要那句话。
       text = text.replace(/^["“「『]([\s\S]*)["”」』]$/, '$1').trim();
-      text = text.replace(/^(招牌词|我|她)\s*[:：]\s*/, '').trim();
+      text = text.replace(/^(小招牌词|我|她)\s*[:：]\s*/, '').trim();
       if (!text) {
         applyPurposeOutcome(state, {
           now: Date.now(), config: p.config, outcome: 'silent', text: '', planned: selection.purpose,

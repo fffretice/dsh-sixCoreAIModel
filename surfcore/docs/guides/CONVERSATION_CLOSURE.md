@@ -6,7 +6,7 @@
 > 代码：`src/conversation-closure.js`（纯逻辑）、`src/bridge.js`（状态/接口/冷却）、
 > `src/mcp-snowluma-safe.js`（`qq_close_conversation` 工具）。
 > 测试：`scripts/test-conversation-closure.mjs`、`scripts/test-closure-wiring.mjs`。
-> 踩坑背景：踩坑档案 #63。
+> 踩坑背景：`docs/PITFALLS.md` #63。
 
 ---
 

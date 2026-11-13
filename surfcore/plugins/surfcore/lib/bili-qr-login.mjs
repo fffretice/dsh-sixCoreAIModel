@@ -240,7 +240,7 @@ function writeOwnerCredentials(cookies, account) {
   return { mid: payload.mid, name: payload.name, savedAt: payload.savedAt };
 }
 
-/** 绑定招牌词自己的号：写回原来的 credentials.json，并把 nav 确认到的 self 落进配置。 */
+/** 绑定小招牌词自己的号：写回原来的 credentials.json，并把 nav 确认到的 self 落进配置。 */
 function writeFishCredentials(cookies, account) {
   const payload = {
     sessdata: cookies.SESSDATA,
@@ -274,7 +274,7 @@ export function validateQrAccount({ target = 'owner', account = {}, selfMid = ''
   const who = `${account.name || mid}（${mid}）`;
   if (target === 'owner') {
     if (selfMid && mid === selfMid) {
-      return { ok: false, status: 'wrong-account', error: `扫码的是招牌词自己的号（${who}），不是主人；请换主人的 B站 账号扫。` };
+      return { ok: false, status: 'wrong-account', error: `扫码的是小招牌词自己的号（${who}），不是主人；请换主人的 B站 账号扫。` };
     }
     if (expectedMid && mid !== String(expectedMid)) {
       return { ok: false, status: 'wrong-account', error: `扫码的是 ${who}，不是配置里的主人 ${expectedName || ''}（${expectedMid}）` };
@@ -285,20 +285,20 @@ export function validateQrAccount({ target = 'owner', account = {}, selfMid = ''
   // 允许显式勾选「与主人同一个号」后再扫，避免把「只有一个小号」的新用户卡死。
   const sameAccountConfigured = Boolean(selfMid && ownerMid && String(selfMid) === String(ownerMid));
   if (!allowSameAsOwner && !sameAccountConfigured && ownerMid && mid === ownerMid) {
-    return { ok: false, status: 'wrong-account', error: `扫码的是主人账号（${who}），不能当招牌词；请换招牌词的 B站 账号扫。如果你只有一个 B站 号（主人=招牌词），勾选「与主人同一个号」后重扫。` };
+    return { ok: false, status: 'wrong-account', error: `扫码的是主人账号（${who}），不能当小招牌词；请换小招牌词的 B站 账号扫。如果你只有一个 B站 号（主人=小招牌词），勾选「与主人同一个号」后重扫。` };
   }
   const mustBe = expectedMid || selfMid;
   if (mustBe && mid !== String(mustBe)) {
-    // 2026-10-27 修：用户明确勾了「与主人同一个号」时，应该允许**换号**（主人=招牌词=新号），
-    // 否则会卡死：管理员卡片已改成新号、招牌词还指着旧号 → 永远报"不是当前招牌词"。
+    // 2026-10-27 修：用户明确勾了「与主人同一个号」时，应该允许**换号**（主人=小招牌词=新号），
+    // 否则会卡死：管理员卡片已改成新号、小招牌词还指着旧号 → 永远报"不是当前小招牌词"。
     // 只放行"换成本人同一个号"（主人号），不放行换成任意第三个号（防被换人）。
     if (allowSameAsOwner && ownerMid && mid === String(ownerMid)) return { ok: true, switched: true };
-    return { ok: false, status: 'wrong-account', error: `扫码的是 ${who}，不是当前招牌词 ${expectedName || ''}（${mustBe}）。要点：① 只想用同一个号（主人=招牌词）→ 勾选「与主人同一个号」再扫；② 要换到别的号 → 先点「清除旧 B站 凭据（归档）」再扫。` };
+    return { ok: false, status: 'wrong-account', error: `扫码的是 ${who}，不是当前小招牌词 ${expectedName || ''}（${mustBe}）。要点：① 只想用同一个号（主人=小招牌词）→ 勾选「与主人同一个号」再扫；② 要换到别的号 → 先点「清除旧 B站 凭据（归档）」再扫。` };
   }
   return { ok: true };
 }
 
-/** 只读：告诉设置页「招牌词账号登录过没有」，绝不回显 cookie。 */
+/** 只读：告诉设置页「小招牌词账号登录过没有」，绝不回显 cookie。 */
 export function readFishAccount() {  try {
     const data = JSON.parse(fs.readFileSync(BILI_CRED, 'utf8'));
     if (!data?.sessdata || !data?.bili_jct) return { configured: false };
@@ -324,7 +324,7 @@ export function readOwnerAccount() {
 }
 
 /**
- * 打开 B站 登录页并取出二维码。target='fish' 绑定招牌词自己的号，target='owner' 绑定主人号。
+ * 打开 B站 登录页并取出二维码。target='fish' 绑定小招牌词自己的号，target='owner' 绑定主人号。
  * @returns {{id:string, image:string, expiresAt:number, expected:{mid:string,name:string}, target:string}}
  */
 export async function startQrLogin({ target = 'owner', expectedMid = '', expectedName = '', allowSameAsOwner = false } = {}) {

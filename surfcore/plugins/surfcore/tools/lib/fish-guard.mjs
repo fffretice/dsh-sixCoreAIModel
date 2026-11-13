@@ -58,7 +58,7 @@ export const DEFAULT_BILI_FISH_GUARD = Object.freeze({
   includeHotSample: true,
   // 识别：用户可配「开头词 / 中间包含词 / 结尾词」，任一命中就算鱼；
   // 2026-10-23 用户定：最后一个字是「鱼」也算（咸鱼/摸鱼/鱿鱼…）；
-  // 并且名字里**只要包含「招牌词」**就算（招牌词观察员 / 招牌词研究员…）。接受极小概率误伤真人。
+  // 并且名字里**只要包含「招牌词」**就算（招牌词观察员 / 主兴趣研究员…）。接受极小概率误伤真人。
   namePrefixes: [],
   nameSuffixes: ['招牌词', 'fish', '鱼'],
   nameContains: ['招牌词'],

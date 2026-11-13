@@ -38,8 +38,8 @@ export function evaluateWakeBudget({ key = '', wakeTimes = [], now = Date.now(),
   if (g.enabled === false) return { blocked: false };
   const times = (Array.isArray(wakeTimes) ? wakeTimes : []).map(Number).filter((t) => Number.isFinite(t) && t > 0);
   const isPrivate = String(key ?? '').startsWith('private:');
-  // 单群额度覆盖（2026-10-29 主人定）：groupWakesPerDay: {"1000000003": 25}
-  // 例：群总池 100 = 群 A 75 + 群 B 25；私聊单独 100。
+  // 单群额度覆盖（2026-10-29 老大定）：groupWakesPerDay: {"1000000003": 25}
+  // 群总池 100 = 我的群 75 + kuri 的群 25；私聊单独 100。
   const groupOverrides = g.groupWakesPerDay && typeof g.groupWakesPerDay === 'object' ? g.groupWakesPerDay : {};
   const groupId = String(key ?? '').startsWith('group:') ? String(key).slice('group:'.length) : '';
   const override = groupId && Object.prototype.hasOwnProperty.call(groupOverrides, groupId)

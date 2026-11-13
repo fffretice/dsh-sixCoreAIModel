@@ -72,7 +72,7 @@ SnowLuma 是第三方的 QQ 运行时，**本项目不打包、不代装**（EUL
 
 ```powershell
 cd D:\
-git clone https://github.com/your-github/surfcore.git
+git clone https://github.com/your-org/surfcore.git
 cd surfcore
 npm install
 ```
@@ -189,7 +189,7 @@ http://127.0.0.1:3100/?token=<consoleToken>
 
 ```powershell
 cd state\voice-packs
-git clone https://github.com/your-github/surfvoicecloud.git voice-cloud
+git clone https://github.com/your-org/surfvoicecloud.git voice-cloud
 cd voice-cloud
 node scripts\fetch-models.mjs      # 下载模型并校验
 ```
@@ -201,7 +201,7 @@ node scripts\fetch-models.mjs      # 下载模型并校验
 
 ### 桌宠
 
-1. 去 <https://github.com/your-github/surfpet/releases/latest> 下 `pet-pack.zip`；
+1. 去 <https://github.com/your-org/surfpet/releases/latest> 下 `pet-pack.zip`；
 2. 设置 → 桌宠 → 填 Electron 路径（`electron.exe`）→ 填 zip 路径 → 安装 → 启动。
 
 ---

@@ -102,15 +102,23 @@
     "groupNestMaxFish": 3,
     "groupNestIds": [],
     "namePrefixes": [],
-    "nameSuffixes": [],
-    "nameContains": [],
-    "groupNameSuffixes": [],
+    "nameSuffixes": [
+      "招牌词",
+      "fish",
+      "鱼"
+    ],
+    "nameContains": [
+      "招牌词"
+    ],
+    "groupNameSuffixes": [
+      "招牌词",
+      "fish"
+    ],
     "exemptNames": [],
     "exemptIds": [],
     "fishIds": [],
     "bypassDirectAddress": true,
-    "blockSends": true,
-    "_note": "招牌词守则：当某个词（比如你角色的招牌梗）在群里刷屏时，限制她跟着发。词表留空＝不启用。"
+    "blockSends": true
   },
   "slang": {
     "enabled": true,
@@ -130,6 +138,11 @@
     "enabled": true,
     "maxReplyChars": 500,
     "mustReplyKeywords": [
+      "deepseek",
+      "群友A鱼",
+      "主兴趣",
+      "鲸鱼",
+      "d指导",
       "在吗"
     ],
     "contextWindow": 20,
@@ -206,7 +219,24 @@
       "recommendedSleepMinMs": 300000,
       "recommendedSleepMaxMs": 7200000,
       "recommendedProbability": 0.05,
-      "recommendedKeywords": [],
+      "recommendedKeywords": [
+        "群友A鱼",
+        "DeepSeek",
+        "deepseek",
+        "DS",
+        "D老师",
+        "d老师",
+        "D指导",
+        "d指导",
+        "D师傅",
+        "d师傅",
+        "深度求索",
+        "主兴趣",
+        "鲸鱼",
+        "DeepSeek V3",
+        "DeepSeek R1",
+        "R1"
+      ],
       "recommendedAtMention": true,
       "recommendedNameMention": true,
       "recommendedQuestion": true,
@@ -347,6 +377,10 @@
     "identityGuard": {
       "_note": "借了别人的音色/形象时，把那些名字填进来：她不会自称是那个角色。",
       "forbiddenNames": []
+    },
+    "rulesGate": {
+      "_note": "群里 owner 消息进规则核心前的语义闸：selfNicknames 填她自己的昵称（她自称/被@的名字），@ 别人时不会被当成教学句。",
+      "selfNicknames": []
     }
   },
   "webSearch": {

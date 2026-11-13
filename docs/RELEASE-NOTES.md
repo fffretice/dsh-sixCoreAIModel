@@ -5,7 +5,47 @@ and how to re-verify.
 
 ---
 
-## 0. Version 1.2.0 (2026-11-08)
+## 0. Version 1.3.0 (2026-11-13)
+
+**yourDaughter 1.3.0 — she remembers who said it, and knows when not to speak.**
+
+### Memory that knows whose memory it is
+
+A new attribution layer stamps every group-sourced record with its group and speaker before it enters her private context, and drops records whose speaker is unknown. `/api/memory/recall` returns the speaker; the prompt header says it plainly: what group members say is not what the owner said. In 1.2.0 that line arrived with no owner attached.
+
+### Continuity without the noise
+
+The first turn of every conversation now carries one real event from the last 48 hours: one line, 120 characters at most, once a day, stale after 30 minutes. Alongside it, rest replay offers a memory at least seven days old only after 20 quiet minutes, at most twice a day, and a write-back gate accepts only conclusions, decisions, pitfalls, preferences and agreements. Digest windows no longer file yesterday under today's date.
+
+### Emotion with a soft ceiling
+
+`patience` sat at exactly 0.85 for 408 consecutive samples: +0.60/hour recovery against a −0.015 penalty per request, under a hard cap. It now drifts to 0.72 right after she has been asked for something and 0.80 after two quiet hours; 0.85 is a lid that bleeds off at 0.4/hour. The first measured afternoon moved 0.822 → 0.806. The model ships as a pure module with an offline replay harness.
+
+### A voice channel that knows when not to talk
+
+A local TTS client with content-addressed caching, cache versioning and style inside the cache key — a *normal* request used to replay a cached *happy* clip. Failures return a readable error, so she types instead of claiming she spoke. On top, a voice-opportunity model: late night, low energy and short replies lower the odds; at most two a day; in groups only when the room is light (mood 0.65, social 0.6, her last line ≤12 characters).
+
+### Rules and language that earn their place
+
+Owner teaching now passes a gate — core, candidate pool, or discard. The core was compressed from 7,062 to 6,694 characters across four dry-run batches inside a 7,200-character budget. A slang loop replaces static top-18 injection with only words that appeared in recent messages (6 in use, 3 understood, 1,200 characters); a bracket-style self-check flags a 60 %-plus sentence-tail habit without rewriting a word.
+
+### Boundaries that hold
+
+Private wishes stopped appearing in group prompts (32 of 44 sampled group prompts carried one); reflections are filtered by origin; a private-conversation token used against a group returns 403 and an audit row unless the caller passes `crossKey`; per-group silence stops outbound messages without touching private chat; stickers are told apart from photos before waking her; an 8.79 MB image is downscaled to 598 KB before it reaches the model. Optional and unpackaged: a room-view route that hands her a 2 MB PNG of a 3D scene as private image context.
+
+Under the hood: **134 files touched, 29 new modules, 40 new tests**, an injection audit that reads the delivered prompt rather than a preview, and a QQ transport inventory with an alert channel that does not depend on QQ.
+
+### What's next
+
+Wiring what is still in shadow — rest replay, handoff, the conflict ledger — and finishing the transport fallback, so the engine survives losing its QQ bridge.
+
+### Sanitisation for 1.3.0
+
+Character cards, personal memory and every personal identifier were stripped again from this cut; `scripts/release-audit.mjs` reports **0 high-severity findings**. See §1 below for how to verify.
+
+---
+
+## 0.1 Version 1.2.0 (2026-11-08)
 
 Cut from the same deployment, four days after 1.1.0. The headline is the **memory core**: one card,
 two views, and a digest that writes events instead of statistics. 64 files changed, **+5,571 / −534**;

@@ -148,7 +148,7 @@ export const DEFAULT_UNIFIED = {
     components: [],
     // 构建产物型组件（桌宠）走版本清单：发版时把 version.json 放到 Release 资产里。
     // 默认指向官方 Release 的 latest 直链（无 API 限流）；自建发布源就改这里。
-    pet: { versionUrl: 'https://github.com/your-github/surfpet/releases/latest/download/version.json' },
+    pet: { versionUrl: 'https://github.com/your-org/surfpet/releases/latest/download/version.json' },
     voice: { localVersionUrl: '', cloudVersionUrl: '' },
   },
 };
@@ -246,9 +246,30 @@ export function backupFile(file, label) {
 
 export function pruneBackups(keep = 40) {
   try {
+    // 2026-11-13（老大定：要运营完整记忆数据库，备份先不删）：
+    // 默认**不删除任何备份**；只有 unified 配置里 backupPrune.enabled === true 才按下面规则清理。
+    // 想开的时候在 ~/.dsh/surfcore/config.json 里加：
+    //   "backupPrune": { "enabled": true, "keep": 100, "maxTotalGB": 2 }
+    let policy = { enabled: false, keep: keep, maxTotalGB: 0 }
+    try {
+      const unifiedPath = path.join(process.env.HOME || '', '.dsh', 'surfcore', 'config.json')
+      const u = JSON.parse(fs.readFileSync(unifiedPath, 'utf8'))
+      const bp = u?.backupPrune
+      if (bp && typeof bp === 'object') {
+        policy.enabled = bp.enabled === true
+        if (Number.isFinite(Number(bp.keep)) && Number(bp.keep) > 0) policy.keep = Math.max(1, Math.floor(Number(bp.keep)))
+        if (Number.isFinite(Number(bp.maxTotalGB)) && Number(bp.maxTotalGB) > 0) policy.maxTotalGB = Number(bp.maxTotalGB)
+      }
+    } catch {}
+    if (!policy.enabled) return   // 老大没开：只保留，不删
+    keep = policy.keep
     // 2026-10-22 审计：旧版是「全局只留 40 条」，而「全部备份」一次就写 8 份，
     // 点 5 次就会把 persona / config 的唯一历史副本挤掉。改为**按来源分别保留**。
-    const RE = /^(.*)-(\d{4}-\d{2}-\d{2}T[^-]+)$/;
+    // 2026-11-13（新 PM P1）：旧正则 `[^-]+` 遇到第一个 `-` 就停，而 ISO 时间戳
+    // 经 replace(/[:.]/g,'-') 后全是 `-`（如 2026-11-12T20-01-12-257Z），
+    // 而且文件名结尾还有 `.json` 没被 `$` 吃掉 → 每份备份自成一組、永不清理
+    // （实测 backups 739 份 / 1.04G，每组都是 1 份）。
+    const RE = /^(.*)-(\d{4}-\d{2}-\d{2}T[\d-]+Z)(\.[A-Za-z0-9.]+)?$/;
     const groups = new Map();
     for (const name of fs.readdirSync(BACKUP_DIR)) {
       const full = path.join(BACKUP_DIR, name);
@@ -262,6 +283,27 @@ export function pruneBackups(keep = 40) {
       list.sort((a, b) => b.mtime - a.mtime);
       for (const item of list.slice(keep)) {
         try { fs.unlinkSync(item.full); } catch {}
+      }
+    }
+    // 2026-11-13（新 PM P1）：容量兜底——按组保留之外，总量超上限时从最旧开始删。
+    // 防止「按组保留」某天失灵时无限涨（实测已到 2.0G / 742 份）。
+    const MAX_TOTAL_BYTES = (policy.maxTotalGB > 0 ? policy.maxTotalGB : 2) * 1024 * 1024 * 1024;
+    let total = 0;
+    const all = [];
+    for (const name of fs.readdirSync(BACKUP_DIR)) {
+      const full = path.join(BACKUP_DIR, name);
+      try {
+        const st = fs.statSync(full);
+        if (!st.isFile()) continue;
+        total += st.size;
+        all.push({ full, mtime: st.mtimeMs, size: st.size });
+      } catch {}
+    }
+    if (total > MAX_TOTAL_BYTES) {
+      all.sort((a, b) => a.mtime - b.mtime);
+      for (const item of all) {
+        if (total <= MAX_TOTAL_BYTES) break;
+        try { fs.unlinkSync(item.full); total -= item.size; } catch {}
       }
     }
   } catch {}

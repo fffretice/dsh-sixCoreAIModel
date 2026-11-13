@@ -14,7 +14,7 @@ fs.writeFileSync(path.join(dir, 'version.json'), JSON.stringify({ version: '0.1.
 // 1) 有 meta（sha 故意写错）→ 应可查，且提示有新提交
 writeInstalledMeta(dir, { version: '0.1.0', sha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' });
 const withMeta = await inspectComponent({
-  id: 'surfvoice-local', name: '语音包（本地）', dir, kind: 'auto', versionRepo: 'your-github/surfvoicelocal',
+  id: 'surfvoice-local', name: '语音包（本地）', dir, kind: 'auto', versionRepo: 'your-org/surfvoicelocal',
 }, { fetch: true });
 console.log('withMeta:', JSON.stringify({ available: withMeta.available, reason: withMeta.reason, update: withMeta.updateAvailable }));
 assert.equal(withMeta.available, true, '有 meta 时应可查');
@@ -23,7 +23,7 @@ assert.equal(withMeta.updateAvailable, true, 'sha 不一致应提示有更新');
 // 2) 没有 meta → 仍可查（给出"旧安装"的说明），不应报"读不到 package.json"
 fs.rmSync(path.join(dir, '.installed-meta.json'), { force: true });
 const noMeta = await inspectComponent({
-  id: 'surfvoice-local', name: '语音包（本地）', dir, kind: 'auto', versionRepo: 'your-github/surfvoicelocal',
+  id: 'surfvoice-local', name: '语音包（本地）', dir, kind: 'auto', versionRepo: 'your-org/surfvoicelocal',
 }, { fetch: true });
 console.log('noMeta:', JSON.stringify({ available: noMeta.available, reason: noMeta.reason }));
 assert.equal(noMeta.available, true, '没有 meta 也应可查');
@@ -33,7 +33,7 @@ assert.ok(!String(noMeta.reason).includes('package.json'), '不应再报读不�
 const empty = path.join(tmp, 'empty');
 fs.mkdirSync(empty, { recursive: true });
 const none = await inspectComponent({
-  id: 'surfvoice-cloud', name: '语音包（云端）', dir: empty, kind: 'auto', versionRepo: 'your-github/surfvoicecloud',
+  id: 'surfvoice-cloud', name: '语音包（云端）', dir: empty, kind: 'auto', versionRepo: 'your-org/surfvoicecloud',
 }, { fetch: true });
 console.log('empty:', JSON.stringify({ available: none.available, reason: none.reason }));
 assert.equal(none.available, false, '空目录应不可查');

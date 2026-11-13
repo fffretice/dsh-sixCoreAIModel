@@ -29,6 +29,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isGroupSourced, attributionBadge, appendSourceHint } from './memory-attribution.js';
 
 export const MEMORY_CARD_VERSION = 1;
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,6 +93,8 @@ export const DEFAULT_MEMORY_CARD_CONFIG = Object.freeze({
   fullMaxRecords: 0,
   /** 全量卡 md 导出只在档案小于这个字节数时生成（否则写占位，避免 10GB 档案再复制一份）。 */
   fullMarkdownMaxBytes: 5 * 1024 * 1024,
+  /** 私聊记忆来源标注：shadow=只记录 would-change 不改 prompt（默认）；enforce=加徽标/跳过缺 speaker。 */
+  attributionMode: 'shadow',
 });
 
 /** 记忆来源 → 平台模块。 */
@@ -178,6 +181,10 @@ export function normalizeMemoryCardConfig(input = {}) {
     fullMaxBytes,
     fullMaxRecords,
     fullMarkdownMaxBytes: clampInt(raw.fullMarkdownMaxBytes, DEFAULT_MEMORY_CARD_CONFIG.fullMarkdownMaxBytes, 1024 * 1024, 50 * 1024 * 1024),
+    attributionMode: (() => {
+      const mode = String(raw.attributionMode || raw.attribution?.mode || '').toLowerCase();
+      return mode === 'enforce' ? 'enforce' : 'shadow';
+    })(),
   };
 }
 
@@ -284,6 +291,54 @@ export function canEnterGroupView(record) {
 export const RECAP_STAT_RE = /一共\s*\d+\s*句，你自己说了\s*\d+\s*句|里聊到一些零碎的话/;
 export function isRecapStatLine(text) {
   return RECAP_STAT_RE.test(String(text ?? ''));
+}
+
+// ── 2026-11-09（task-9 B2）：记录状态（Anthropic 文章「笔记要能核对、会过期」）──────
+// checked：原始 transcript / 引文核对通过的笔记；unconfirmed：二手笔记，待核对；
+// superseded：被新事实替代（保留不删，不进注入视图；完整卡可查）。
+export const RECORD_STATUS = Object.freeze(['checked', 'unconfirmed', 'superseded']);
+
+export function normalizeRecordStatus(value) {
+  const v = String(value ?? '').trim();
+  return RECORD_STATUS.includes(v) ? v : '';
+}
+
+const NOTE_TITLE_RE = /最近回顾|昨天你们聊过|资料源|她做过|每日回顾/;
+
+/** 是不是「笔记类」记录（不是原始 transcript）：manual/digest/回顾标签/回顾类标题。 */
+export function isNoteRecord(record = {}) {
+  const source = String(record.source ?? '');
+  const tags = Array.isArray(record.tags) ? record.tags : [];
+  const title = String(record.title ?? '');
+  return source === 'manual' || source === 'digest' || tags.includes('回顾') || NOTE_TITLE_RE.test(title);
+}
+
+function statusSourceOf(record = {}) {
+  const source = String(record.source ?? '');
+  if (source === 'digest') return 'digest';
+  if (source === 'manual') return 'manual';
+  if (String(record.statusSource ?? '')) return String(record.statusSource);
+  return isNoteRecord(record) ? 'manual' : 'transcript';
+}
+
+function defaultStatusOf(input = {}) {
+  return isNoteRecord(input) ? 'unconfirmed' : 'checked';
+}
+
+/** 提取引文：「…」/“…”/"…"；用于拿 transcript 核对笔记。 */
+export function extractQuotes(text, { minChars = 4, maxChars = 60 } = {}) {
+  const out = [];
+  const re = /[「“"]([^」”"]{4,60})[」”"]/g;
+  let m;
+  while ((m = re.exec(String(text ?? ''))) !== null) {
+    const q = m[1].trim();
+    if (q.length >= minChars && q.length <= maxChars) out.push(q);
+  }
+  return out;
+}
+
+function normTranscript(text) {
+  return String(text ?? '').replace(/\s+/g, '').replace(/[「」“”"']/g, '');
 }
 
 /** 脱敏：密钥/令牌/手机号/身份证/银行卡/链接。QQ scope 保留 QQ 号（本地记忆）；共享出去的不保留。 */
@@ -455,6 +510,17 @@ function normalizeRecord(item) {
     // 2026-11-08（task-12）：来源视图。新记录由 conversationKey 推断；旧卡这里可能为空，
     // 渲染期 originKindOf() 会再按 conversationKey/private/groupId 推断；推断不出 = unknown。
     originKind: normalizeOriginKind(raw.originKind),
+    // 2026-11-09（B2）：核对状态。旧记录没有字段：原始记录视为 checked，笔记视为 unconfirmed。
+    status: normalizeRecordStatus(raw.status) || defaultStatusOf(raw),
+    statusSource: String(raw.statusSource ?? '') || statusSourceOf(raw),
+    verifiedAt: String(raw.verifiedAt ?? ''),
+    supersededBy: String(raw.supersededBy ?? ''),
+    // task-28（2026-11-09）：口径版本化字段（冲突检测/旧口径保留用；缺省不影响旧记录）
+    supersededAt: String(raw.supersededAt ?? ''),
+    conflictWith: asArray(raw.conflictWith).map(String).slice(0, 8),
+    topicKey: String(raw.topicKey ?? ''),
+    stance: ['allow', 'forbid', 'restrict', 'neutral'].includes(raw.stance) ? raw.stance : '',
+    refRecordId: String(raw.refRecordId ?? ''),
     // 「最初」是独立于「重要」的判定：仅和主人的互动，按首次接触的 30 天窗口分档。
     initialTier: ['first10', 'mid10', 'late10', 'after', 'first-meet'].includes(raw.initialTier) ? raw.initialTier : '',
     initialProbability: Number.isFinite(Number(raw.initialProbability)) ? Math.max(0, Math.min(1, Number(raw.initialProbability))) : 0,
@@ -1286,6 +1352,16 @@ function makeRecord(input, config, now) {
     conversationKey: String(input.conversationKey ?? ''),
     // 来源视图：显式优先；否则按 conversationKey/private/groupId/platform 推断（见 originKindOf）。
     originKind: normalizeOriginKind(input.originKind) || inferOriginKindFromInput(input),
+    // B2：状态默认——原始 transcript = checked；manual/digest 笔记 = unconfirmed（等引文核对）。
+    status: normalizeRecordStatus(input.status) || defaultStatusOf(input),
+    statusSource: String(input.statusSource ?? '') || statusSourceOf(input),
+    verifiedAt: String(input.verifiedAt ?? ''),
+    supersededBy: String(input.supersededBy ?? ''),
+    supersededAt: String(input.supersededAt ?? ''),
+    conflictWith: asArray(input.conflictWith).map(String).slice(0, 8),
+    topicKey: String(input.topicKey ?? ''),
+    stance: ['allow', 'forbid', 'restrict', 'neutral'].includes(input.stance) ? input.stance : '',
+    refRecordId: String(input.refRecordId ?? ''),
     initialTier: '',
     initialProbability: 0,
     isInitial: false,
@@ -1802,7 +1878,7 @@ export function compactMemoryCard(card, config = {}, { targetRatio = 0.85, now =
   return steps;
 }
 
-function recordLine(record, { platform = 'qq', full = false } = {}) {
+function recordLine(record, { platform = 'qq', full = false, view = 'private', attributionMode = 'shadow', onWouldChange = null } = {}) {
   const scope = platform === 'bili' && record.scope === 'qq' ? 'bili' : record.scope;
   const rawText = redactForMemory(record.text || record.title, { scope, maxChars: 260 });
   let body;
@@ -1823,16 +1899,37 @@ function recordLine(record, { platform = 'qq', full = false } = {}) {
     const reply = redactForMemory(record.botReply, { scope, maxChars: 160 });
     body += ` → 她回：${short(reply, record.clarity === 'vivid' ? 160 : 100)}`;
   }
-  const head = `- ${dateOnly(record.createdAt)} [${CLARITY_LABEL[record.clarity] ?? '清楚'}] `;
-  return full ? `${head}${body}（重要 ${record.importance}）` : `${head}${body}`;
+  // B2：只有「笔记类」加状态标记（原始记录 = checked，不加标记，控制注入字符）。
+  let statusTag = '';
+  if (isNoteRecord(record)) {
+    if (record.status === 'unconfirmed') statusTag = '[未核实] ';
+    else if (record.status === 'superseded') statusTag = '[已过期] ';
+  }
+  const head = `- ${dateOnly(record.createdAt)} [${CLARITY_LABEL[record.clarity] ?? '清楚'}] ${statusTag}`;
+  const suffix = full ? `（重要 ${record.importance}）` : '';
+  // task-52：私聊 prompt 的群来源记录必须带【群号·说话人】；shadow 只记录 would-change，prompt 不变
+  let badge = '';
+  if (!full && platform === 'qq' && view === 'private' && isGroupSourced(record)) {
+    const b = attributionBadge(record);
+    if (b === null) {
+      onWouldChange?.({ action: 'skip_missing_speaker', recordId: record.id });
+      if (attributionMode === 'enforce') return null;
+    } else {
+      onWouldChange?.({ action: 'add_badge', recordId: record.id, badge: b });
+      if (attributionMode === 'enforce') badge = `${b} `;
+    }
+  }
+  return `${head}${badge}${body}${suffix}`;
 }
 
 function visibleFor(card, platform, cfg, { groupView = false, injectView = false } = {}) {
   return card.records.filter((record) => {
     // 完整卡（platform='all'）保留敏感条目供管理员查看；注入提示词的 QQ / B站 两版都排除。
     if (record.sensitive) return platform === 'all';
-    // 注入视图（非完整卡）：统计句一律不注入（历史垃圾 / 旧代码漏写成的新行都不进提示词）。
+    // 注入视图（非完整卡）：统计句一律不注入（历史垃圾 / 旧代码漏写成的新行都不进提示词）；
+    // B2：已过期（superseded）的笔记也不进注入视图，完整卡仍保留。
     if (injectView && isRecapStatLine(record.text)) return false;
+    if (injectView && record.status === 'superseded' && isNoteRecord(record)) return false;
     // 群聊视图：只收群里发生的 + 公开来源；私聊/桌宠/无法判断的旧记录一律不进。
     if (groupView && !canEnterGroupView(record)) return false;
     if (platform === 'bili') {
@@ -1940,17 +2037,20 @@ export function renderMemoryCard(card, options = {}) {
   const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
   const cfg = normalizeMemoryCardConfig(options.config ?? {});
   const maxChars = full ? 0 : clampInt(options.maxChars, 0, 0, 20000);
-  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, digest: 3, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
+  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 6, bili: 2, qq: 4, pet: 2, fuzzy: 3 });
   // 2026-11-08（task-12）群聊视角：按结构化来源分视图，私聊来源在 sectionize 里就排除了，
   // 不再靠「（私聊里的，群里别提）」这种文本标签兜底。
   const groupView = !full && platform === 'qq' && options.perspective === 'group';
+  const view = platform === 'bili' ? 'bili' : (groupView ? 'group' : 'private');
+  const attributionMode = options.attributionMode === 'enforce' ? 'enforce' : 'shadow';
+  const onWouldChange = typeof options.onWouldChange === 'function' ? options.onWouldChange : null;
   const sections = sectionize(card, { platform, full, now, config: cfg, limits: limitsForSections, groupView });
-  const fmtLine = (record) => recordLine(record, { platform, full });
+  const fmtLine = (record) => recordLine(record, { platform, full, view, attributionMode, onWouldChange });
   const limits = full
     ? { firstMet: 9999, anchors: 9999, digest: 9999, initial: 9999, owner: 9999, recent: 9999, bili: 9999, qq: 9999, pet: 9999, fuzzy: 9999 }
     : (platform === 'bili'
       ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 }
-      : { firstMet: 1, anchors: 5, digest: 3, initial: 6, owner: 8, recent: 8, bili: 4, qq: 8, pet: 4, fuzzy: 4 });
+      : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 6, bili: 2, qq: 4, pet: 2, fuzzy: 3 });
   const calls = [
     { key: 'firstMet', title: '## 初次相遇（和主人）', priority: 120, lines: sections.firstMet.slice(0, limits.firstMet).map((record) => fmtLine(record)) },
     { key: 'anchors', title: '## 永远不会忘的', priority: 100, lines: sections.anchors.slice(0, limits.anchors).map((record) => fmtLine(record)) },
@@ -2018,6 +2118,11 @@ export function renderMemoryCard(card, options = {}) {
     }
     if (out.length > maxChars) out = `${out.slice(0, Math.max(0, maxChars - 1))}…`;
   }
+  // task-52 软提醒：仅私聊 prompt；shadow 只记录 would-add，enforce 才写进 prompt
+  if (!full && view === 'private' && out) {
+    if (attributionMode === 'enforce') out = appendSourceHint(out, { mode: 'enforce' });
+    else onWouldChange?.({ action: 'add_source_hint', recordId: '' });
+  }
   return out;
 }
 
@@ -2083,11 +2188,12 @@ export function memoryCardStatus(card, config = {}, now = Date.now()) {
 }
 
 /** 维护后写盘：json + 人看的 md + QQ/B站 两份注入块。原子写，失败不覆盖旧文件。 */
-export function saveMemoryCardOutputs(paths, card, config = {}, now = Date.now()) {
+export function saveMemoryCardOutputs(paths, card, config = {}, now = Date.now(), options = {}) {
   const cfg = normalizeMemoryCardConfig(config);
   fs.mkdirSync(paths.dir, { recursive: true });
   const full = renderMemoryCard(card, { config: cfg, full: true, now });
-  const promptQq = renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now });
+  const onWouldChange = typeof options.onWouldChange === 'function' ? options.onWouldChange : null;
+  const promptQq = renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now, attributionMode: cfg.attributionMode, onWouldChange });
   const promptQqGroup = renderMemoryCard(card, { config: cfg, platform: 'qq', maxChars: cfg.injectMaxChars.qq, now, perspective: 'group' });
   const promptBili = renderMemoryCard(card, { config: cfg, platform: 'bili', maxChars: cfg.injectMaxChars.bili, now });
   writeTextAtomic(paths.json, `${JSON.stringify(card, null, 2)}\n`);
@@ -2129,7 +2235,34 @@ function writeTextAtomic(file, text) {
  * · 迁移前把当前 memory-card.json 备份成 `.bak-precrossview-<时间戳>`；
  *   这里改的是维护器内存里的卡，落盘统一走 saveMemoryCardOutputs 的原子写，不手改卡。
  */
-export function migrateMemoryRecords(card, { paths = null, now = Date.now() } = {}) {
+/**
+ * B2：把「原话语料」拼成一个可检索字符串，用来核对笔记里的引文：
+ *   · 卡内非笔记记录（原始 transcript）；
+ *   · 本轮维护读进来的 inbox 行；
+ *   · 全量归档（<=80MB 时整份读；更大只读尾部会漏，先不处理——我们当前约 4.5MB）。
+ * 只在存在「未核对笔记」时调用，平时不耗 IO。
+ */
+function buildTranscriptHay(card, inboxLines = [], fullPaths = null, { maxBytes = 80 * 1024 * 1024 } = {}) {
+  const parts = [];
+  for (const r of Array.isArray(card?.records) ? card.records : []) {
+    if (!isNoteRecord(r) && r.text) parts.push(normTranscript(r.text));
+  }
+  for (const line of Array.isArray(inboxLines) ? inboxLines : []) {
+    try { const it = JSON.parse(line); if (it?.text) parts.push(normTranscript(it.text)); } catch {}
+  }
+  try {
+    const file = fullPaths?.fullJsonl;
+    if (file && fs.existsSync(file) && fs.statSync(file).size <= maxBytes) {
+      for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+        if (!line.trim()) continue;
+        try { const rec = JSON.parse(line); if (rec?.text && !isNoteRecord(rec)) parts.push(normTranscript(rec.text)); } catch {}
+      }
+    }
+  } catch {}
+  return parts.join('\n');
+}
+
+export function migrateMemoryRecords(card, { paths = null, now = Date.now(), inboxLines = [], fullPaths = null } = {}) {
   if (!card || !Array.isArray(card.records)) return { changed: false, removed: 0, reclassified: 0, unpinned: 0 };
   let changed = false;
   // ① 每次维护都清「回顾统计句」
@@ -2179,7 +2312,35 @@ export function migrateMemoryRecords(card, { paths = null, now = Date.now() } = 
     if (card.meta.crossViewMigration) Object.assign(card.meta.crossViewMigration, { removed, reclassified, unpinned });
     changed = true;
   }
-  return { changed, removed, reclassified, unpinned };
+  // ③ B2：笔记引文核对（幂等；每次维护只处理「未核对过的笔记」，通常每天几条）。
+  //    核对通过 → checked + verifiedAt；核对不过 → 保持 unconfirmed（渲染加 [未核实]）。
+  let noteVerified = 0;
+  let noteUnconfirmed = 0;
+  const pendingNotes = card.records.filter((r) => isNoteRecord(r) && r.status !== 'checked' && !r.verifiedAt);
+  if (pendingNotes.length) {
+    const hay = buildTranscriptHay(card, inboxLines, fullPaths);
+    for (const note of pendingNotes) {
+      const quotes = extractQuotes(note.text);
+      const checks = quotes.length ? quotes : [String(note.text ?? '')];
+      let ok = checks.length > 0;
+      for (const quote of checks) {
+        const needle = normTranscript(quote).slice(0, 24);
+        if (needle.length < 4 || !hay.includes(needle)) { ok = false; break; }
+      }
+      if (ok) {
+        note.status = 'checked';
+        note.verifiedAt = iso(now);
+        note.statusSource = statusSourceOf(note);
+        noteVerified += 1;
+        changed = true;
+      } else {
+        note.status = 'unconfirmed';
+        noteUnconfirmed += 1;
+      }
+    }
+    card.meta.noteVerify = { at: iso(now), verified: noteVerified, unconfirmed: noteUnconfirmed };
+  }
+  return { changed, removed, reclassified, unpinned, noteVerified, noteUnconfirmed };
 }
 
 export function maintainMemoryCard({
@@ -2205,7 +2366,7 @@ export function maintainMemoryCard({
   const fullAdded = fullPaths ? archiveDecayedToFull(fullPaths, card, fullCfg, now) : 0;
   if (fullAdded) changed = true;
   // 2026-11-08（task-12）：来源分视图迁移 + 回顾统计句清理（必须在归档之后，保证被清的记录已进全量卡）
-  const memoryMigrated = migrateMemoryRecords(card, { paths, now });
+  const memoryMigrated = migrateMemoryRecords(card, { paths, now, inboxLines, fullPaths });
   if (memoryMigrated.changed) changed = true;
   if (forceDecay || needsDailyDecay(card, cfg, now)) {
     // 插件/DSH 关了一周再开：按「错过几天」补跑，而不是只降一档。

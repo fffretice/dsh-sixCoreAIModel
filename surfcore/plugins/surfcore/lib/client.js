@@ -1065,7 +1065,7 @@ F("sessionCwd", "会话工作目录", "留空用 surfcore 根目录", "text", { 
         F("fishGuard.failCooldownMinutes", "风控失败冷却（分钟）", "默认 60；遇到 -509/12015 等码自动停手", "number", { min: 1 }),
       ]},
       { group: "B站 会话权限", note: "只影响她自己的 DSH 会话（bili-whale-*），不影响 QQ 桥接；改完下一次 tick 生效", fields: [
-        F("agent.sandbox", "会话权限", "danger-full-access = 定时醒来能跑 bili.mjs（推荐；Windows 用户名含特殊字符时用 workspace-write 会因 WRITE_OWNER 起不了命令）；workspace-write = 更安全但可能什么都跑不了", "select", {
+        F("agent.sandbox", "会话权限", "danger-full-access = 定时醒来能跑 bili.mjs（推荐；某些 Windows 账户下 workspace-write 会因 WRITE_OWNER 起不了命令）；workspace-write = 更安全但可能什么都跑不了", "select", {
           options: [["danger-full-access", "完全访问（推荐，能跑工具）"], ["workspace-write", "仅工作区（更安全，可能跑不了命令）"]],
         }),
       ]},
@@ -1487,8 +1487,8 @@ F("toolsPath", "bili.mjs 路径", "留空 = 用合体插件自带的 tools/", "t
       const doRun = async () => {
         const toPet = (carrier ?? P.carrier) === "pet";
         const ok = confirm(toPet
-          ? "现在就让招牌词在桌宠气泡里主动搭话一次？\n\n会真的生成一句话（算一次模型回合）；语音载体还会合成语音。"
-          : "现在就让招牌词按「目的机制」主动私聊你一次？\n\n这会真的发 QQ 消息（不占每日分享/评论额度，但会算一次模型回合）。");
+          ? "现在就让小招牌词在桌宠气泡里主动搭话一次？\n\n会真的生成一句话（算一次模型回合）；语音载体还会合成语音。"
+          : "现在就让小招牌词按「目的机制」主动私聊你一次？\n\n这会真的发 QQ 消息（不占每日分享/评论额度，但会算一次模型回合）。");
         if (!ok) return;
         setBusy("purpose-run");
         setMsg("");
@@ -1643,7 +1643,7 @@ F("toolsPath", "bili.mjs 路径", "留空 = 用合体插件自带的 tools/", "t
           minutesRow("失败后多久重试（分钟）", "retryMs", 15, "投递失败 / 回合报错", { min: 1, max: 360 }),
           numberRow("最多重试几次", "maxAttempts", 3, "连续失败后回到正常间隔", { min: 1, max: 10 }),
           numberRow("提示词硬上限（字符）", "promptMaxChars", 16000, "超出会截中间、保留头尾指令", { min: 4000, max: 30000, step: 1000 }),
-          textRow("找哪个 QQ（留空 = ownerQQ）", "ownerUin", "", "必须同时在 allow.private，且与招牌词互为好友", "3287064288")),
+          textRow("找哪个 QQ（留空 = ownerQQ）", "ownerUin", "", "必须同时在 allow.private，且与小招牌词互为好友", "3287064288")),
 
         h("div", { className: "qbw-actions", style: { borderTop: "none", marginTop: "8px", paddingTop: "0", flexWrap: "wrap" } },
           h(Btn, { kind: "qbw-btn2", onClick: doPreview, disabled: !!busy }, busy === "purpose-preview" ? "生成中…" : "预览这一轮（不发）"),
@@ -1794,7 +1794,7 @@ F("toolsPath", "bili.mjs 路径", "留空 = 用合体插件自带的 tools/", "t
     function PurposeTab({ qq, setQq, unified, setUnified, overview, busy, setBusy, toast, reload, goTab }) {
       return h("div", null,
         h("div", { className: "qbw-infobox" },
-          "「目的」现在是一个独立栏目：管招牌词什么时候主动找你、想说什么；载体可选桌宠或 QQ。",
+          "「目的」现在是一个独立栏目：管小招牌词什么时候主动找你、想说什么；载体可选桌宠或 QQ。",
           "没装桌宠的用户默认走 QQ；装了桌宠后可以切到桌宠，同一时间只会有一个载体收到。"),
         h(PurposeCarrierCard, { cfg: qq, set: setQq, busy, toast }),
         h(PurposeCard, { cfg: qq, set: setQq, busy, setBusy, toast, carrier: qq?.purpose?.carrier }),
@@ -1953,8 +1953,8 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
             h("h4", null, "QQ 早安问候"),
             h("p", null, "每天固定时间给指定 QQ 发一句早安；只在 DSH 在线时发，换着花样，不 @ 人。"),
             h("p", { className: "qbw-hint" },
-              "⚠️ 招牌词需要和早安对象「互为 QQ 好友」：QQ 对陌生人/单向好友的私聊会直接拒绝（result=16「请先添加对方为好友」）。",
-              "桥接发之前会先查招牌词这边的好友列表并提示；请确保对方也加了招牌词，别只单向添加。",
+              "⚠️ 小招牌词需要和早安对象「互为 QQ 好友」：QQ 对陌生人/单向好友的私聊会直接拒绝（result=16「请先添加对方为好友」）。",
+              "桥接发之前会先查小招牌词这边的好友列表并提示；请确保对方也加了小招牌词，别只单向添加。",
               "08:00 没发出去时会在 3 小时内补发，DSH 掉线则每 10 分钟重试；试发失败会直接显示原因。"),
             h(Field, {
               f: { path: ["greetings", "enabled"], label: "启用早安问候", kind: "switch" },
@@ -1967,7 +1967,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
               onChange: (v) => set(["greetings", "morning", "time"], v),
             }),
             h(Field, {
-              f: { path: ["greetings", "morning", "uin"], label: "要问候的 QQ", hint: "必须是 allow.private 里的 QQ，且与招牌词「互为好友」", kind: "text" },
+              f: { path: ["greetings", "morning", "uin"], label: "要问候的 QQ", hint: "必须是 allow.private 里的 QQ，且与小招牌词「互为好友」", kind: "text" },
               value: getPath(cfg, ["greetings", "morning", "uin"]),
               onChange: (v) => set(["greetings", "morning", "uin"], v),
             }),
@@ -2361,7 +2361,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
         onClose?.();
       };
 
-      const title = target === "fish" ? "扫码绑定招牌词的 B站 账号" : "扫码登录主人的 B站 账号";
+      const title = target === "fish" ? "扫码绑定小招牌词的 B站 账号" : "扫码登录主人的 B站 账号";
       const live = state.phase === "waiting" || state.phase === "scanned";
       return h("div", { className: "qbw-modal-backdrop", onClick: (e) => { if (e.target === e.currentTarget) close(); } },
         h("div", { className: "qbw-modal", style: { maxWidth: "430px" } },
@@ -2378,10 +2378,10 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
               target === "owner"
                 ? "只保存 cookie 用来读取偏好；不会用主人号发评论/动态。"
                 : "绑定后她会用这个号看视频、评论、发动态。"),
-            state.expected?.mid ? h("p", { className: "qbw-hint", style: { textAlign: "center" } }, `期望账号：${state.expected.name || (target === "fish" ? "招牌词" : "主人")}（${state.expected.mid}）；扫错号会被拒绝。`) : null,
+            state.expected?.mid ? h("p", { className: "qbw-hint", style: { textAlign: "center" } }, `期望账号：${state.expected.name || (target === "fish" ? "小招牌词" : "主人")}（${state.expected.mid}）；扫错号会被拒绝。`) : null,
             target === "fish" ? h("label", { className: "qbw-hint", style: { display: "flex", gap: "6px", alignItems: "center", justifyContent: "center", marginTop: "8px" } },
               h("input", { type: "checkbox", checked: allowSameAsOwner, onChange: (e) => setAllowSameAsOwner(e.target.checked) }),
-              "我只有一个 B站 号（主人=招牌词），允许用主人号当招牌词") : null) : null,
+              "我只有一个 B站 号（主人=小招牌词），允许用主人号当小招牌词") : null) : null,
           state.phase === "expired" ? h("p", { className: "qbw-err" }, "二维码已过期，请重新生成。") : null,
           state.phase === "wrong" ? h("div", null,
             h("p", { className: "qbw-err" }, `✗ ${state.error || "扫错账号"}`),
@@ -2404,7 +2404,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
     }
 
     // ── 口味权重 / 一键抓取 ─────────────────────────────────────────────────
-    // 用户反馈（2026-10-23）：招牌词总盯着一两个偏好，而且新用户不知道「爱看」填什么。
+    // 用户反馈（2026-10-23）：小招牌词总盯着一两个偏好，而且新用户不知道「爱看」填什么。
     // 这个组件做两件事：① 每个偏好一个 0~5 的权重；② 从用户自己的 B站 数据里抓候选词，
     // 勾选后填进「爱看」（不自动保存，仍走底部「保存」）。
     function TasteEditor({ cfg, set, toast }) {
@@ -2532,19 +2532,19 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
           h(Btn, { kind: "qbw-btn2", onClick: addWord, disabled: !newWord.trim() }, "+ 加到爱看"),
           h("select", { className: "qbw-select", value: target, onChange: (e) => setTarget(e.target.value), title: "抓谁的口味" },
             h("option", { value: "owner" }, "抓取主人"),
-            h("option", { value: "fish" }, "抓取招牌词"),
+            h("option", { value: "fish" }, "抓取小招牌词"),
             h("option", { value: "both" }, "两者都抓")),
           h(Btn, { onClick: runScan, disabled: scanning }, scanning ? "抓取中…" : "一键抓取我的偏好")),
         accounts ? h("div", { className: "qbw-hint", style: { marginTop: "4px" } },
           "主人账号：", accounts.owner?.configured ? `${accounts.owner.name || "（未取到昵称）"}（${accounts.owner.mid}）已扫码登录` : "未登录（点抓取会弹二维码）",
-          " · 招牌词：", accounts.fish?.configured ? `${accounts.fish.name || "（未取到昵称）"}（${accounts.fish.mid}）已绑定` : "未绑定（B站 页可扫码）") : null,
+          " · 小招牌词：", accounts.fish?.configured ? `${accounts.fish.name || "（未取到昵称）"}（${accounts.fish.mid}）已绑定` : "未绑定（B站 页可扫码）") : null,
         h("div", { className: "qbw-hint", style: { marginTop: "4px" } },
           "抓取是只读的：读当前选中账号的观看历史 / 收藏夹 + 本地观看记录；不读浏览器登录的账号、不读 QQ 聊天、不点赞、不改账号。",
           "抓主人需要先用主人的 B站 App 扫二维码；扫错号会被拒绝。"),
         scanErr ? h("div", { className: "qbw-err", style: { marginTop: "6px" } }, `✗ ${scanErr}`) : null,
         scan ? h("div", { style: { marginTop: "8px" } },
           (scan.accounts ?? []).length ? h("div", { className: "qbw-hint" },
-            `抓取账号：${(scan.accounts ?? []).map((item) => `${item.role === "owner" ? "主人" : "招牌词"} ${item.name || item.mid}（${item.mid}）`).join(" · ")}`) : null,
+            `抓取账号：${(scan.accounts ?? []).map((item) => `${item.role === "owner" ? "主人" : "小招牌词"} ${item.name || item.mid}（${item.mid}）`).join(" · ")}`) : null,
           h("div", { className: "qbw-hint" }, `来源：${(scan.sources ?? []).map((item) => `${item.ok ? "✓" : "✗"} ${item.name}${item.items != null ? `（${item.items}）` : ""}${item.error ? ` ${item.error}` : ""}`).join(" · ")}`),
           candidates.length ? h("div", { className: "qbw-chips" }, candidates.map((item) => {
             const already = exists(item.keyword);
@@ -2640,9 +2640,9 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
           h("h4", null, "B站 账号"),
           h("div", { className: "qbw-kv" }, h("span", null, "登录态"), h("span", null, bili.available ? `记忆已生成 · ${bili.briefChars ?? 0} 字` : "暂无记忆（先扫码登录）")),
           h("div", { className: "qbw-kv" }, h("span", null, "隐私复检"), h("span", null, bili.blocked ? "命中拦截" : "通过")),
-          h("p", null, "推荐扫码登录招牌词（用 B站 App 扫一扫）；手动粘贴 cookie 和待审核队列在「高级设置」里。"),
+          h("p", null, "推荐扫码登录小招牌词（用 B站 App 扫一扫）；手动粘贴 cookie 和待审核队列在「高级设置」里。"),
           h("div", { className: "qbw-actions", style: { borderTop: "none", marginTop: "6px", paddingTop: "0" } },
-            h(Btn, { onClick: () => setQrFish(true), disabled: !!busy }, "扫码登录招牌词"))),
+            h(Btn, { onClick: () => setQrFish(true), disabled: !!busy }, "扫码登录小招牌词"))),
         h(QqShareSection, { qq, set: setQqPath, data: automation, busy, setBusy, toast }),
         h(Section, { title: "作息窗口", note: "C 模式：每个窗口至少 1 次；全天上限见「每天最多醒来」，剩余次数按该时段最近评分分配，相邻两次至少隔「最小间隔」", defaultOpen: true },
           h("div", { style: { padding: "6px 0" } }, h(WindowsEditor, { value: cfg?.night?.windows, onChange: (v) => set(["night", "windows"], v) }))),
@@ -4000,7 +4000,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
         showCreate ? h("div", { className: "qbw-card", style: { marginTop: "10px" } },
           h("h4", null, "新建角色"),
           h("div", { className: "qbw-hint" }, "可以只填名字（空人格卡/空记忆卡），也可以把你自己预设的人格卡、记忆卡 JSON 一起导入。"),
-          h("div", { className: "qbw-row" }, h("span", { className: "qbw-label" }, "角色名"), h("input", { className: "qbw-input", value: name, placeholder: "例如 角色", onChange: (e) => setName(e.target.value) })),
+          h("div", { className: "qbw-row" }, h("span", { className: "qbw-label" }, "角色名"), h("input", { className: "qbw-input", value: name, placeholder: "例如 小咪", onChange: (e) => setName(e.target.value) })),
           h("div", { className: "qbw-hint", style: { marginTop: "8px" } }, "人格卡（Markdown）"),
           h("input", { type: "file", accept: ".md,.txt,text/markdown,text/plain", onChange: async (e) => {
             const file = e.target.files && e.target.files[0];
@@ -4433,7 +4433,7 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
             !st || !st.installed ? h("span", { style: { fontSize: "12px", opacity: 0.7 } }, form.source.trim() ? "" : "← 先在下方「安装设置」填安装包地址，按钮才可点") : null,
             err ? h("div", { className: "qbw-err", style: { width: "100%", marginTop: "6px" } }, err) : null,
             err ? h("div", { style: { display: "flex", gap: "8px", marginTop: "6px", flexWrap: "wrap" } },
-              h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
+              h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-org/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
               h(Btn, { kind: "qbw-btn2", onClick: async () => {
                 setBusy("clean"); setErr("");
                 try {
@@ -4460,9 +4460,9 @@ F("socialV2.voice.ffmpegPath", "ffmpeg 路径", "留空走 PATH", "text", { wide
             h(Browse, { mode: "dir", title: "选择桌宠安装目录", onPick: (v) => setForm((f) => ({ ...f, appDir: v })) })),
           h("div", { className: "qbw-hint", style: { marginTop: "4px" } }, "沙箱 / 只读用户目录的环境里，把安装目录指到可写位置（例如工作区内）。"),
           h("div", { className: "qbw-hint", style: { marginTop: "6px" } },
-            `官方最新包：${st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip"}`),
+            `官方最新包：${st?.defaults?.zipUrl || "https://github.com/your-org/surfpet/releases/latest/download/pet-pack.zip"}`),
           h("div", { className: "qbw-actions" },
-            h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
+            h(Btn, { kind: "qbw-btn2", onClick: () => setForm((f) => ({ ...f, source: st?.defaults?.zipUrl || "https://github.com/your-org/surfpet/releases/latest/download/pet-pack.zip" })) }, "用官方最新版"),
             h(Btn, { kind: "qbw-btn2", disabled: busy === "electron-detect", onClick: () => act("electron-detect") }, busy === "electron-detect" ? "检测中…" : "检测 Electron"),
             h(Btn, { kind: "qbw-btn2", disabled: busy === "electron-install", onClick: () => act("electron-install", { source: "auto" }) },
               busy === "electron-install" ? "下载中…（约 125MB，2~5 分钟）" : `下载 Electron ${st?.defaults?.electronVersion || "45.0.0"}`),

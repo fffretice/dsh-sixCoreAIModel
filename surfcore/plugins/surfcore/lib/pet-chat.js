@@ -33,14 +33,14 @@ const MAX_HISTORY_MESSAGES = 200;
 const EVENT_LIMIT = 200;
 
 /**
- * 身份守卫（2026-10-29）：借了别人声线时，她**不是**那个角色。
+ * 身份守卫（2026-10-29）：声音借了可可萝的声线，但她**不是**可可萝。
  * 提示词里有规则，这里兜底——模型偶尔会顺着声音来源自称。
  */
-const OTHER_CHARACTER_NAMES = [];   // 需要时在 config.json → socialV2.identityGuard.forbiddenNames 里配
+const OTHER_CHARACTER_NAMES = ['可可萝', 'Kokkoro', 'kokkoro', 'KOKKORO', 'コッコロ'];
 function guardIdentityClaim(text) {
   let out = String(text ?? '');
   for (const name of OTHER_CHARACTER_NAMES) {
-    out = out.replace(new RegExp(`(我是|我就是|叫我|你可以叫我)\\s*${name}`, 'g'), '我是她');
+    out = out.replace(new RegExp(`(我是|我就是|叫我|你可以叫我)\\s*${name}`, 'g'), '我是角色');
   }
   return out;
 }
@@ -90,12 +90,12 @@ export function clipForVoice(text, max = 120) {
   return `${head.slice(0, max - 1).trim()}…`;
 }
 
-/** 模型偶尔会回「招牌词：xxx」/ 引号 / markdown；气泡里不需要这些壳。 */
+/** 模型偶尔会回「角色：xxx」/ 引号 / markdown；气泡里不需要这些壳。 */
 export function cleanReply(text) {
   let out = String(text ?? '').trim();
   out = out.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
   out = out.replace(/^\*\*([\s\S]+)\*\*$/, '$1').trim();
-  out = out.replace(/^(招牌词|我|她)\s*[:：]\s*/, '').trim();
+  out = out.replace(/^(角色|我|她)\s*[:：]\s*/, '').trim();
   out = out.replace(/^["“「『]([\s\S]*)["”」』]$/, '$1').trim();
   return out.slice(0, 600);
 }
@@ -278,7 +278,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     let name = String(cur?.name || '').trim();
     if (!name) {
       const heading = persona.match(/^#\s*([^\n#]{1,40})/m);
-      name = heading ? heading[1].trim() : '招牌词';
+      name = heading ? heading[1].trim() : '角色';
     }
     return { id: cur?.id || '', name, persona, personaFile, hasPersona: Boolean(persona) };
   }

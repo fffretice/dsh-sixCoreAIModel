@@ -997,5 +997,5 @@ QQ 会把第二行识别成可点链接（`:35` 注释）。三模式语义（`:
 
 记忆卡：`docs/guides/MEMORY_CARD.md`；目的：`docs/guides/PURPOSE_OUTREACH.md`；
 收尾：`docs/guides/CONVERSATION_CLOSURE.md`；身份：`docs/guides/CROSS_PLATFORM_IDENTITY.md`；
-额度：`docs/guides/TOKEN_USAGE_CONSOLE.md`；踩坑与复现：踩坑档案
+额度：`docs/guides/TOKEN_USAGE_CONSOLE.md`；踩坑与复现：`docs/PITFALLS.md`
 （记忆卡维护顺序、账本重复计费、ESM 缓存、身份错位）。

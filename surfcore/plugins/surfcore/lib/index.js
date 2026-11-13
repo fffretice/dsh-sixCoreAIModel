@@ -75,7 +75,7 @@ import {
 } from '../../../src/admin-identity.js';
 import {
   applyMemoryCardAction, compactMemoryCardNow, fullMemoryCardSnapshot, memoryCardIdle, memoryCardSnapshot,
-  memoryCardStatusNow, notifyOwnerIfNeeded, restoreMemoryCardBackup, runMemoryCardMaintenance,
+  memoryCardConfig, memoryCardStatusNow, notifyOwnerIfNeeded, restoreMemoryCardBackup, runMemoryCardMaintenance,
   startMemoryCardTimer,
 } from './memory-card.js';
 import { readWatchHistory } from '../tools/lib/watch-history.mjs';
@@ -245,7 +245,7 @@ export function apply(ctx) {
       const list = [];
       const updCfg = readUnified().config?.updates ?? {};
       // 1) SurfCore 本体：源码树，走 git
-      list.push({ id: 'surfcore', name: 'SurfCore 本体', dir: QQBOT_ROOT, kind: 'git', branch: 'main', versionRepo: 'your-github/surfcore' });
+      list.push({ id: 'surfcore', name: 'SurfCore 本体', dir: QQBOT_ROOT, kind: 'git', branch: 'main', versionRepo: 'your-org/surfcore' });
       // 2) 语音包（bridge 管理的安装目录；config.json 的 voicePacks.dir 可覆盖）
       //    是 git clone 就走 git；不是则看有没有配版本清单（updates.voice.*VersionUrl）
       try {
@@ -254,11 +254,11 @@ export function apply(ctx) {
         const voice = updCfg.voice ?? {};
         list.push({
           id: 'surfvoice-local', name: '语音包（本地）', dir: path.join(packsDir, 'voice-local'),
-          kind: 'auto', branch: 'main', versionUrl: voice.localVersionUrl || '', versionRepo: 'your-github/surfvoicelocal',
+          kind: 'auto', branch: 'main', versionUrl: voice.localVersionUrl || '', versionRepo: 'your-org/surfvoicelocal',
         });
         list.push({
           id: 'surfvoice-cloud', name: '语音包（云端）', dir: path.join(packsDir, 'voice-cloud'),
-          kind: 'auto', branch: 'main', versionUrl: voice.cloudVersionUrl || '', versionRepo: 'your-github/surfvoicecloud',
+          kind: 'auto', branch: 'main', versionUrl: voice.cloudVersionUrl || '', versionRepo: 'your-org/surfvoicecloud',
         });
       } catch {}
       // 3) 桌宠：构建产物，走版本清单（zip 安装包）；更新交给 petService.updateFromZip（保留 data/）
@@ -782,7 +782,7 @@ export function apply(ctx) {
       startSyncTimer();
       // 改了记忆卡容量/注入上限后立刻重渲染，避免「设置保存了但提示词还是旧的」。
       try {
-        const memoryCard = await runMemoryCardMaintenance({ config: readUnified().config.memoryCard });
+        const memoryCard = await runMemoryCardMaintenance({ config: memoryCardConfig(readUnified().config) });
         result.memoryCard = { status: memoryCard.status, changed: memoryCard.changed };
       } catch (error) {
         result.warnings.push(`记忆卡重渲染失败：${error?.message ?? error}`);
@@ -1037,7 +1037,7 @@ export function apply(ctx) {
   // 和上面的「双向脱敏同步」不是一回事：memory 是 QQ⇄B站 的搬运；
   // memory-card 是她自己的记忆（冲浪 + 聊天 + 主人互动），带清晰度/遗忘/容量规则。
   async function handleMemoryCard(req, res) {
-    const config = readUnified().config.memoryCard;
+    const config = memoryCardConfig(readUnified().config);
     if (req.method === 'GET') {
       json(res, 200, memoryCardSnapshot(config));
       return;
@@ -1080,7 +1080,7 @@ export function apply(ctx) {
     if (req.method !== 'GET') { json(res, 405, { ok: false, error: '只读接口' }); return; }
     const q = String(url.searchParams.get('q') ?? '');
     const limit = Math.max(1, Math.min(200, Number(url.searchParams.get('limit')) || 40));
-    json(res, 200, fullMemoryCardSnapshot({ q, limit, config: readUnified().config.memoryCard }));
+    json(res, 200, fullMemoryCardSnapshot({ q, limit, config: memoryCardConfig(readUnified().config) }));
   }
 
   // ── 身份对齐 ────────────────────────────────────────────────────────────
@@ -1919,7 +1919,7 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
           events: { ...chatStatus.events, hostFile: petApi.hostFile },
           lastError: chatStatus.lastError,
           defaults: {
-            zipUrl: 'https://github.com/your-github/surfpet/releases/latest/download/pet-pack.zip',
+            zipUrl: 'https://github.com/your-org/surfpet/releases/latest/download/pet-pack.zip',
             electronUrl: electronDownloadUrl(),
             electronVersion: ELECTRON_VERSION,
           },
@@ -2492,7 +2492,7 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
         archive(ownerCred, 'owner-credentials');
         try { fs.rmSync(ownerCred, { force: true }); } catch {}
       }
-      // 清掉配置里对应的 mid，避免下一次扫码又被"不是当前招牌词/主人"挡住
+      // 清掉配置里对应的 mid，避免下一次扫码又被"不是当前角色/主人"挡住
       try {
         const bili = readBiliConfig().config ?? {};
         if (target === 'fish' || target === 'both') bili.self = { mid: '', name: '' };

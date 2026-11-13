@@ -13,7 +13,7 @@ const realFetch = globalThis.fetch;
 
 // ① 19 位动态：subject_id 已经丢精度，uri 是精确的
 {
-  const body = '{"code":0,"data":{"last_view_at":0,"cursor":"","items":[{"id":1,"reply_time":1792658122,"user":{"nickname":"鱼","mid":"3546938804799926"},"item":{"business_id":17,"subject_id":1261813571425140745,"root_id":0,"source_id":321492967824,"uri":"https://t.bilibili.com/1261813571425140745#reply321492967824","title":"","source_content":"喜欢招牌词捏","target_reply_content":""}}]}}';
+  const body = '{"code":0,"data":{"last_view_at":0,"cursor":"","items":[{"id":1,"reply_time":1792658122,"user":{"nickname":"鱼","mid":"3546938804799926"},"item":{"business_id":17,"subject_id":1261813571425140745,"root_id":0,"source_id":321492967824,"uri":"https://t.bilibili.com/1261813571425140745#reply321492967824","title":"","source_content":"喜欢主兴趣捏","target_reply_content":""}}]}}';
   const payload = JSON.parse(body); // 模拟真实 JSON.parse：subject_id 已变成 ...700
   globalThis.fetch = async () => ({ json: async () => payload });
   const feed = await pullFeed('reply', { headers: {}, pages: 1 });

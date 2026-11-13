@@ -688,6 +688,27 @@ export function requestLine(state, { at = Date.now(), minN = 5, cooldownMs = 24 
   };
 }
 
+/**
+ * 「你逗某个人的时候，她接不接」（2026-11-04）。
+ * 老大想让群友A那边的互动也走因果：怎么损、损完什么反应，让她自己攒。
+ * bySource 里的 `tease:<名字>` 由桥接在她回话时记。
+ */
+export function teaseLine(state, { name = '', at = Date.now(), minN = 4, cooldownMs = 12 * 3600 * 1000 } = {}) {
+  const st = normalizeState(state);
+  const key = `tease:${String(name || '').trim()}`;
+  if (!name) return { state: st, line: '' };
+  const last = Number((st.stats.teasePromptAt || {})[key] || 0);
+  if (last && at - last < cooldownMs) return { state: st, line: '' };
+  const v = st.stats.bySource?.[key] || { n: 0, replied: 0 };
+  if (Number(v.n) < minN) return { state: st, line: '' };
+  st.stats.teasePromptAt = { ...(st.stats.teasePromptAt || {}), [key]: at };
+  return {
+    state: st,
+    line: `\n【你逗${name}之后】逗过 ${v.n} 次，其中 ${Number(v.replied) || 0} 次她接了话。\n`
+      + '（没有好坏。她接不接、要不要接着逗，你自己看。）\n',
+  };
+}
+
 /** 给监控台/排查看的一句话摘要。 */
 export function summarize(state) {  const st = normalizeState(state);
   const last = st.log[st.log.length - 1] || null;

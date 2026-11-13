@@ -160,11 +160,16 @@ export function tick(mood, now = Date.now()) {
   // 2026-11-03：老大要求自然恢复速度降 20%——时间常数 1.2h → 1.5h（1.2/0.8）。
   const k = Math.min(1, dtH / 1.5);            // 1.5 小时内回到基线（原来 1.2 小时）
   d.energy = clamp01(d.energy + (target - d.energy) * k);
-  d.patience = clamp01(d.patience + dtH * 0.60);
-  // 耐心是短期耐力：没被要求做事时会慢慢松下来，也不钉在 100%（2026-10-31）
+  // 2026-11-12（老大拍板）：耐心改成 task-45 软上限模型。
+  // 旧逻辑每小时 +0.60 再硬压 0.85，一次被要求只 -0.015，5 分钟就被抹平，
+  // 结果连续两天所有采样都钉在 0.85。现在：
+  //   · 刚被要求（2h 内）→ 往 0.72 漂；
+  //   · 安静超过 2h → 往 0.80 漂（真正缓过来）；
+  //   · 0.85 只是软上限，超过时按 0.4/h 回落，不再当墙。
   const idleAskH = Math.max(0, (now - Number(m.lastAskedAt || now)) / 3600000);
-  if (idleAskH > 2) d.patience = clamp01(d.patience + (0.65 - d.patience) * Math.min(1, dtH * 0.12));
-  if (d.patience > 0.85) d.patience = 0.85; // 2026-11-06：0.9 顶格太久，降到 0.85 留出波动
+  const patienceTarget = idleAskH > 2 ? 0.80 : 0.72;
+  if (d.patience > 0.85) d.patience = Math.max(0.85, d.patience - dtH * 0.40);
+  d.patience = clamp01(d.patience + (patienceTarget - d.patience) * Math.min(1, dtH * 0.30));
   // 2026-11-06：半夜没有新信息，好奇不该被睡眠吃掉一半。
   const nightDecay = (() => { const h = new Date(now).getHours(); return h >= 23 || h < 8; })();
   d.curiosity = clamp01(d.curiosity - dtH * (nightDecay ? 0.03 : 0.06));
@@ -457,13 +462,14 @@ export function patienceToneFor(target, patience) {
   return out.length ? out : [];
 }
 
-export function moodPromptLine(mood) {
+export function moodPromptLine(mood, { behavior } = {}) {
   const d = mood?.dims ?? DEFAULTS;
   if (mood?.asleep) {
     const leftMin = Math.max(1, Math.round((Number(mood.sleepUntil || 0) - Date.now()) / 60000));
     return `【你现在的状态】睡着（大概还有 ${leftMin} 分钟醒）。\n- 别人叫你，你会迷糊、不想动，回一句就又睡了；只回一两个字或「唔…」\n- 不要做任何事、不要查东西、不要长句\n（别解释「我在睡觉」，用语气体现就行。）\n\n`;
   }
-  const b = sampleBehavior(mood);
+  // 2026-11-08（task-23 A）：允许调用方传入本轮已抽好的 behavior —— 注入与落盘必须用同一份。
+  const b = behavior || sampleBehavior(mood);
   const tag = [];
   if (d.energy < 0.35) tag.push('累');
   else if (d.energy > 0.7) tag.push('精神不错');

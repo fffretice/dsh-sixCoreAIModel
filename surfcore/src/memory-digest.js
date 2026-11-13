@@ -36,7 +36,7 @@ function clip(text, max = 30) {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
-/** 群标签：群 <群号> → 只留「群 <群号>」；私聊 → 「私聊」。 */
+/** 群标签：群 1000000002 → 只留「群 1000000002」；私聊 → 「私聊」。 */
 function labelOf(conversationKey) {
   const key = String(conversationKey || '');
   if (key.startsWith('group:')) return `群 ${key.slice('group:'.length)}`;
@@ -109,10 +109,19 @@ export function buildDailyDigestItems({
   inboxLines = [],
   syncedFacts = [],
   now = Date.now(),
-  windowMs = 30 * 3600 * 1000,
+  windowMs = null,
   maxNotes = 5,
 } = {}) {
-  const since = now - Math.max(3600 * 1000, Number(windowMs) || 0);
+  const since = (() => {
+    const explicit = Number(windowMs);
+    if (Number.isFinite(explicit) && explicit > 0) return now - Math.max(3600 * 1000, explicit);
+    // 2026-11-12：早整理窗口改成「昨天 00:00 到现在」，不再用 30h。
+    // 旧窗口在 05:30 会把前天晚上也框进来，标签写成 11-10~11-12，和前一天回顾重复。
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() - 24 * 3600 * 1000;
+  })();
+  const windowLabel = `${localDayKey(since)}~${localDayKey(now)}`;
   const rows = [];
   for (const line of inboxLines) {
     const raw = typeof line === 'string' ? line : '';
@@ -184,7 +193,7 @@ export function buildDailyDigestItems({
     if (!parts.length) continue;
     notes.push({
       title: `最近回顾 · ${label}`,
-      text: `${localDayKey(now)} ${label}：${parts.join('；')}。`,
+      text: `${windowLabel} ${label}：${parts.join('；')}。`,
       originKind,
       conversationKey: key,
       importance: 60,
@@ -209,7 +218,7 @@ export function buildDailyDigestItems({
     if (parts.length) {
       notes.push({
         title: '最近回顾 · 私聊',
-        text: `${localDayKey(now)} 私聊：${parts.join('；')}。`,
+        text: `${windowLabel} 私聊：${parts.join('；')}。`,
         originKind: 'private',
         conversationKey: 'private:unknown',
         importance: 60,

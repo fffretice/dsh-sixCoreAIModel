@@ -335,7 +335,7 @@ HTTP transport 下起作用，而三个 MCP server 全是 stdio。清掉是为�
 
 | 时刻 | 发生的事 |
 | --- | --- |
-| 22:07:45 | 入站：`@角色`（owner）→ 进未读队列 |
+| 22:07:45 | 入站：`@群友A鱼`（owner）→ 进未读队列 |
 | 22:07:54 | 桥接**新建 DSH 会话**、挂上 `qq-chat-v2` preset、模型固定 `deepseek-official/deepseek-flash (max)` |
 | 22:07:56 | agent 调 `qq_get_prompt` → 拿到会话令牌与人设 ✅ |
 | 22:08:02 | agent 调 `qq_send_message` → **成功 2/2 条** |

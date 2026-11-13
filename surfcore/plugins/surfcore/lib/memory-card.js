@@ -57,7 +57,37 @@ export function memoryCardIdle() {
 }
 
 export function memoryCardConfig(unified = readUnified().config) {
-  return normalizeMemoryCardConfig(unified?.memoryCard ?? EMPTY_CONFIG);
+  const cfg = normalizeMemoryCardConfig(unified?.memoryCard ?? EMPTY_CONFIG);
+  // task-52：root memory.attribution.mode 映射进 memoryCard config；默认 shadow（不改 prompt）。
+  cfg.attributionMode = String(unified?.memory?.attribution?.mode || cfg.attributionMode || 'shadow').toLowerCase() === 'enforce' ? 'enforce' : 'shadow';
+  return cfg;
+}
+
+// task-52：写 prompt 文件时收集 shadow would-change；每轮有变化才追加一行，供 memory-watch 审计。
+let lastAttributionShadowSig = '';
+function saveWithAttributionShadow(paths, card, config, now) {
+  if (config?.attributionMode !== 'shadow') return saveMemoryCardOutputs(paths, card, config, now);
+  const attr = { add_badge: 0, skip_missing_speaker: 0, add_source_hint: 0, samples: [] };
+  const saved = saveMemoryCardOutputs(paths, card, config, now, {
+    onWouldChange: (e) => {
+      if (!e || !e.action) return;
+      attr[e.action] = (attr[e.action] || 0) + 1;
+      if (attr.samples.length < 10 && e.recordId) attr.samples.push(e);
+    },
+  });
+  const meaningful = attr.add_badge || attr.skip_missing_speaker || attr.add_source_hint;
+  const sig = meaningful ? `${attr.add_badge}/${attr.skip_missing_speaker}/${attr.add_source_hint}` : '';
+  if (meaningful && sig !== lastAttributionShadowSig) {
+    lastAttributionShadowSig = sig;
+    try {
+      fs.appendFileSync(path.join(QQ_STATE_DIR, 'memory-attribution-shadow.jsonl'), JSON.stringify({
+        at: new Date(now).toISOString(), mode: 'shadow', source: 'plugin',
+        add_badge: attr.add_badge, skip_missing_speaker: attr.skip_missing_speaker,
+        add_source_hint: attr.add_source_hint, samples: attr.samples,
+      }) + '\n');
+    } catch {}
+  }
+  return saved;
 }
 
 export function memoryCardPaths() {
@@ -329,7 +359,7 @@ export function compactMemoryCardNow({ targetRatio = 0.8, config = memoryCardCon
     const archived = archiveDecayedToFull(pathsNow(), card, config, now);
     const steps = compactMemoryCard(card, config, { targetRatio, now });
     card.lastMaintenanceAt = new Date(now).toISOString();
-    const saved = saveMemoryCardOutputs(pathsNow(), card, config, now);
+    const saved = saveWithAttributionShadow(pathsNow(), card, config, now);
     saveFullMemoryCard(pathsNow(), config, now);
     promptCache = new Map();
     return { ok: true, steps, archived, ...saved, status: memoryCardStatusNow(config) };
@@ -398,7 +428,7 @@ export function applyMemoryCardAction(action, payload = {}, { config = memoryCar
     if (changed) {
       archived += archiveDecayedToFull(pathsNow(), card, config, now);
       card.updatedAt = new Date(now).toISOString();
-      saveMemoryCardOutputs(pathsNow(), card, config, now);
+      saveWithAttributionShadow(pathsNow(), card, config, now);
       saveFullMemoryCard(pathsNow(), config, now);
       promptCache = new Map();
     }
@@ -419,7 +449,7 @@ export function restoreMemoryCardBackup(name, { config = memoryCardConfig(), now
     fs.copyFileSync(resolved, pathsNow().json);
     const card = readCardSafe();
     archiveDecayedToFull(pathsNow(), card, config, now);
-    saveMemoryCardOutputs(pathsNow(), card, config, now);
+    saveWithAttributionShadow(pathsNow(), card, config, now);
     saveFullMemoryCard(pathsNow(), config, now);
     promptCache = new Map();
     return { ok: true, status: memoryCardStatusNow(config) };

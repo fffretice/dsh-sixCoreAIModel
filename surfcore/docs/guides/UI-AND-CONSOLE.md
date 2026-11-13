@@ -203,7 +203,7 @@
 | --- | --- | --- | --- | --- |
 | 平台启动卡 | 是否启动 B站 生物钟 | switch | 读 `overview.platformStart.bili`，写 `unified.platforms.start.bili`（`client.js:2442-2449`） | 否 |
 | 管理员卡 | 同 §2.4② | — | 同一份 `unified.admin`（`client.js:2450`） | 否 |
-| **B站 账号** | 登录态、隐私复检、扫码登录招牌词 | 只读 + 按钮 | `overview.bili.available/briefChars/blocked`；按钮开 `BiliQrModal target="fish"`（`client.js:2451-2457`、`client.js:2501-2509`） | 否 |
+| **B站 账号** | 登录态、隐私复检、扫码登录小招牌词 | 只读 + 按钮 | `overview.bili.available/briefChars/blocked`；按钮开 `BiliQrModal target="fish"`（`client.js:2451-2457`、`client.js:2501-2509`） | 否 |
 | **定时分享视频到群**（`QqShareSection`，`client.js:1857-1900`） | 开关、分享时间点（HH:MM 列表）、只发这些群、卡片到短评间隔、分享形式（text/miniapp/off）、B站 桥接开关、动态同步开关、动态轮询间隔、动态只发这些群 | switch/times/list/number/select | `biliBridge.*` 9 键（`QQ_BILI_SHARE_FIELDS`，`client.js:925-937`）；写入 QQ 侧 `config.json` | ✅ 默认展开（`client.js:1884`） |
 | 同上 | 状态行（开关/今天最后一班/下一班/群数/形式）+「立即分享一次」 | 只读 + 按钮 | 先 `GET /bridge` 检查 `snowluma.connected`，再 `POST /bili/share-now {action:"share-now"}`（`client.js:1867-1874`） | 同上 |
 | **作息窗口** | 每个窗口：开始 `HH:MM`、结束 `HH:MM`、醒来次数（1–12）；`+ 添加窗口`；删除（只剩 1 个时禁用） | 每行 3 个 input + 按钮 | `night.windows[]`（`WindowsEditor`，`client.js:1056-1076`、挂载 `client.js:2459-2460`） | ✅ 默认展开 |
@@ -211,7 +211,7 @@
 | 高级 → **今天（只读）**（`AutomationCard`，`client.js:1826-1852`） | 普通评论/回找我的人/主动搭话/动态回复四类用量与上限、分享型用量、四类动态状态串、下一类、QQ 分享排班 | 只读 | `GET /bili/automation`（`client.js:2394-2397`）；读不到时提示「重启 DSH 后 /bili/automation 才可用」（`client.js:1839`） | 是 |
 | 高级 → 工具行 | B站 参数搜索、依赖体检、发条通知测试 | input + 2 按钮 | `GET /bili/deps`（`client.js:2408-2417`）；`GET /bili/notify-config` + `POST /bili/notify {action:"notify-test"}`（`client.js:2427-2431`） | 是 |
 | 高级 → 3 张小卡 | B站 状态；手动粘贴凭据（SESSDATA / bili_jct / buvid3 → `POST /bili/cookie`，`client.js:2418-2426`）；待审核队列（`GET /bili/pending`，发/删 → `POST /bili/pending {action,id}`，`client.js:2432-2439`） | 只读 / 3 个凭据输入 / 按钮 | 凭据写 `~/.dsh/surfcore/bili/credentials.json`，**永不回显**（`client.js:2470`） | 是 |
-| 高级 → **口味权重 / 一键抓取**（`TasteEditor`，`client.js:2222-2381`） | 每个「爱看 / 额外关键词」一个 0–5 滑块（0=停用，写 `preferences.weights[label]`）、`×` 删除（同时删权重）、新关键词输入、抓取目标（主人/招牌词/两者）、一键抓取、候选 chips（已有置灰）、加入爱看 / 选前 6 个 / 清空选择 | range/text/select/buttons | `preferences.weights`、`preferences.like`、`preferences.keywords`（`client.js:2234-2314`）；`GET /preferences/scan?sources=history,favorites,local&limit=24&target=`（`client.js:2263`）；账号状态 `GET /bili/accounts`（`client.js:2232`） | 是（组内 `collapsible:false`） |
+| 高级 → **口味权重 / 一键抓取**（`TasteEditor`，`client.js:2222-2381`） | 每个「爱看 / 额外关键词」一个 0–5 滑块（0=停用，写 `preferences.weights[label]`）、`×` 删除（同时删权重）、新关键词输入、抓取目标（主人/小招牌词/两者）、一键抓取、候选 chips（已有置灰）、加入爱看 / 选前 6 个 / 清空选择 | range/text/select/buttons | `preferences.weights`、`preferences.like`、`preferences.keywords`（`client.js:2234-2314`）；`GET /preferences/scan?sources=history,favorites,local&limit=24&target=`（`client.js:2263`）；账号状态 `GET /bili/accounts`（`client.js:2232`） | 是（组内 `collapsible:false`） |
 | 高级 → 12 组参数（`FieldGroups`，`client.js:2499`） | 见下表 | 混合 | `BILI_FIELDS`（`client.js:939-1052`），写 `bili.config.json` | 是 |
 | 高级 → 依赖体检输出 | 多行文本 | 只读 `qbw-out` | `client.js:2500` | 是 |
 
@@ -232,7 +232,7 @@
 | 日记与推送 | `diary.push`、`diary.enabled`（**`readOnly:true`**，`client.js:1042`）、`notify.type`(none/desktop/dm/webhook/command)、`notify.url`、`notify.template`、`notify.cmd`、`notify.args`(json) |
 | 工具链 | `toolsPath` |
 
-**B站 扫码弹窗**（`BiliQrModal`，`client.js:2118-2216`）：`POST /bili/qr/start {target, allowSameAsOwner}` 拿 `{id, image(dataURI), expected}`；随后每 **1500 ms** 轮询 `GET /bili/qr/poll?id=`（`client.js:2170`），处理 `confirmed / scanned / expired / wrong-account / failed` 五态；关闭或卸载时 `POST /bili/qr/cancel`（`client.js:2174-2185`）。`target="fish"` 时多一个「我只有一个 B站 号（主人=招牌词）」复选框（`client.js:2205-2207`）；扫错号会被拒绝（`client.js:2209-2211`）。客户端**拿不到 cookie**，只拿到 `mid/昵称`（注释 `client.js:2114-2117`）。
+**B站 扫码弹窗**（`BiliQrModal`，`client.js:2118-2216`）：`POST /bili/qr/start {target, allowSameAsOwner}` 拿 `{id, image(dataURI), expected}`；随后每 **1500 ms** 轮询 `GET /bili/qr/poll?id=`（`client.js:2170`），处理 `confirmed / scanned / expired / wrong-account / failed` 五态；关闭或卸载时 `POST /bili/qr/cancel`（`client.js:2174-2185`）。`target="fish"` 时多一个「我只有一个 B站 号（主人=小招牌词）」复选框（`client.js:2205-2207`）；扫错号会被拒绝（`client.js:2209-2211`）。客户端**拿不到 cookie**，只拿到 `mid/昵称`（注释 `client.js:2114-2117`）。
 
 #### 2.6 语音 `voice`（`VoiceTab`，`client.js:2966-3109`）
 

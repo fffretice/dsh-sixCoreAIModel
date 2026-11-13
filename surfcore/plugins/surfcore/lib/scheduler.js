@@ -106,7 +106,7 @@ function alignmentBlockForBili() {
 /**
  * 跨平台自我锚点（2026-10-23 用户要求）：B站 这边的她也要认得出**自己的 QQ 资料卡**。
  *
- * 以前 B站 侧只知道自己叫「角色」、B站账号是谁，完全不知道 QQ 上的自己长什么样；
+ * 以前 B站 侧只知道自己叫「小咪」、B站账号是谁，完全不知道 QQ 上的自己长什么样；
  * 于是别人把她的 QQ 主页截图甩过来，她只会当陌生人。锚点来源：
  *   · QQ 昵称 / QQ 号 ← 桥接登录时落的 `state/self-identity.json`（B站 进程拿不到网关）；
  *   · B站 昵称 / UID / 人格名 ← `bili.config.json` 的 self / persona。

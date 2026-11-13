@@ -18,7 +18,7 @@ for (let i = 1; i < argv.length; i += 1) {
 }
 if (sub !== 'scan') {
   console.error('用法: node bili.mjs prefs scan [--target fish|owner|both] [--sources history,favorites,local] [--limit 24] [--json]')
-  console.error('  只读：从招牌词 / 主人的 B站 观看历史、收藏夹与本地记录里抽候选关键词。')
+  console.error('  只读：从小招牌词 / 主人的 B站 观看历史、收藏夹与本地记录里抽候选关键词。')
   console.error('  主人账号需要先在设置页「B站 → 口味权重 / 一键抓取」扫码登录。')
   process.exit(2)
 }
@@ -35,7 +35,7 @@ if (opt.json) {
 } else {
   console.log(`凭据: ${result.credentials ? '已登录（可读观看历史 / 收藏夹）' : '没有可用 cookie'}`)
   const roleText = {
-    fish: '招牌词账号',
+    fish: '小招牌词账号',
     owner: '主人账号',
   }
   if (result.accounts?.length) {

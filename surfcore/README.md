@@ -1,6 +1,6 @@
 # SurfCore — 给 DSH agent 一个真实的身份：QQ × B站 × 桌宠
 
-**中文**（English 版见仓库根 [README.md](../README.md)）
+**中文** | [English](README.en.md)
 
 > 一句话：**它不是"把大模型接进 QQ"的机器人框架，而是给模型一个身份、一套会遗忘的记忆、
 > 一份作息、两只手（QQ / B站）和一个能坐在你桌面上的分身。**
@@ -11,7 +11,7 @@
 | 目标 DSH | `0.2.1-rc.2 或更新（rc.3 已能安装，功能未完整回归）`（`npm run verify:adaptation` 可逐项复核） |
 | 平台 | Windows（沙箱 ACL / SnowLuma / 启动脚本都与它绑定） |
 | 许可 | MIT（SnowLuma 是第三方专有运行时，**不随本仓库分发**） |
-| 配套仓库 | [surfvoicelocal](https://github.com/your-github/surfvoicelocal) · [surfvoicecloud](https://github.com/your-github/surfvoicecloud) · [surfpet](https://github.com/your-github/surfpet) |
+| 配套仓库 | [surfvoicelocal](https://github.com/your-org/surfvoicelocal) · [surfvoicecloud](https://github.com/your-org/surfvoicecloud) · [surfpet](https://github.com/your-org/surfpet) |
 
 > 🔒 **本仓库不含任何真实数据**：角色卡是脱敏示例（`roles/`），记忆卡是空壳（`examples/`），
 > 群号 / 群友名单 / QQ 号 / B站 mid 全部为占位符。运行时数据永远只在你自己的机器上。
@@ -22,7 +22,7 @@
 
 把这句话发给 DSH：
 
-> 帮我安装 https://github.com/your-github/surfcore ，按 README 的步骤来。
+> 帮我安装 https://github.com/your-org/surfcore ，按 README 的步骤来。
 
 **顺序很重要**（DSH 常常先 install_bundle、后装依赖，结果激活时报 `Cannot find module '@deepseek-ai/schemastery'`）：
 
@@ -42,7 +42,7 @@
 ## 第一次装（4 条命令）
 
 ```powershell
-git clone --depth 1 https://github.com/your-github/surfcore.git
+git clone --depth 1 https://github.com/your-org/surfcore.git
 cd surfcore
 npm install
 node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
@@ -50,7 +50,7 @@ node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
 
 重启 DSH → 设置 → SurfCore → **诊断 → 一键安装（全部）**（自动发现 SnowLuma、写白名单、起桥接）。
 
-> 不想敲命令：`powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/your-github/surfcore/main/scripts/bootstrap.ps1 | iex"`
+> 不想敲命令：`powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/your-org/surfcore/main/scripts/bootstrap.ps1 | iex"`
 
 前置：Windows + Node ≥22.13 + DSH 0.2.1-rc.2 或更新（rc.3 已能安装，功能未完整回归） + SnowLuma（第三方，需自己装并扫码）。详见 [INSTALL.md](docs/guides/INSTALL.md)。
 
@@ -113,7 +113,7 @@ node scripts/setup-dsh.mjs      # 自动判断 DSH 用的 profile，不用填
 
 ```bash
 # 1) 取代码
-git clone https://github.com/your-github/surfcore.git
+git clone https://github.com/your-org/surfcore.git
 cd surfcore
 
 # 2) 装依赖（postinstall 会自动修补 @snowluma/sdk 的 ESM bug）
@@ -211,7 +211,7 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 
 ### 3.4 可选装语音
 
-两个独立仓库（[surfvoicelocal](https://github.com/your-github/surfvoicelocal) / [surfvoicecloud](https://github.com/your-github/surfvoicecloud)），装在仓库**外面**：
+两个独立仓库（[surfvoicelocal](https://github.com/your-org/surfvoicelocal) / [surfvoicecloud](https://github.com/your-org/surfvoicecloud)），装在仓库**外面**：
 
 | 仓库 | 端口 | 特点 |
 | --- | --- | --- |
@@ -226,7 +226,7 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 
 ### 3.5 可选装桌宠
 
-[surfpet](https://github.com/your-github/surfpet)：Electron 桌面分身（Release 里有安装包）。**用户装 Release 的 zip，开发者 clone 源码自己构建。**
+[surfpet](https://github.com/your-org/surfpet)：Electron 桌面分身（Release 里有安装包）。**用户装 Release 的 zip，开发者 clone 源码自己构建。**
 
 装法：设置页 **桌宠** → 填 zip 地址/目录 → 安装 → 选 `electron.exe` → 启动。
 装好后：右键「文本对话 / 语音对话」，气泡上所有她的话都有「回复」按钮，右键/托盘有**专注模式**。
@@ -333,7 +333,7 @@ node scripts/verify-dsh-020-adaptation.mjs      # 对本机 DSH 版本逐项复�
 | 12 | [AGENT-TOOLS-AND-PRESETS.md](docs/guides/AGENT-TOOLS-AND-PRESETS.md) | 233 | 39 个工具、守卫、两代 preset |
 
 其它：DSH 装配 [DSH_SETUP.md](docs/guides/DSH_SETUP.md) · 安全基线 [SECURITY_BASELINE.md](docs/guides/SECURITY_BASELINE.md) ·
-踩坑档案与风险台账（开发期文档，未随发布包提供） · 全部索引 [docs/README.md](docs/README.md)。
+踩坑 [PITFALLS.md](docs/PITFALLS.md) · 风险台账 [RISK_REGISTER.md](docs/RISK_REGISTER.md) · 全部索引 [docs/README.md](docs/README.md)。
 
 ---
 

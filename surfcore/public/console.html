@@ -1756,6 +1756,30 @@ button:active:not(:disabled) {
 #section-usage .usage-legend i.mixed { background:var(--accent-hover) }
 
 </style>
+<style>
+/* ===== 角色的房间卡片（2026-11-11 duty）：整宽、520px、窄屏自适应、全屏、CSP 兜底 ===== */
+#section-room{margin:0}
+.room-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.room-card-head h2{margin:0}
+.room-card-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.room-btn{border:1px solid var(--border,#dfe4ed);background:var(--surface,#fff);color:var(--text,#202635);border-radius:9px;padding:7px 14px;font-size:13px;line-height:1.2;cursor:pointer;font-family:inherit}
+.room-btn:hover{background:var(--surface-hover,#f5f6fa)}
+.room-btn.primary{background:var(--accent,#4d6bfe);border-color:var(--accent,#4d6bfe);color:#fff}
+.room-btn.primary:hover{background:var(--accent-hover,#405de5)}
+.room-frame-wrap{position:relative;border-radius:12px;overflow:hidden;background:#05060b}
+.room-frame{display:block;width:100%;height:520px;border:0;background:#05060b}
+.room-blocked{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px;text-align:center;color:#cfd3d8;background:radial-gradient(ellipse at center,#141821 0%,#06070b 80%);font-size:13px;line-height:1.7}
+.room-blocked p{margin:0;max-width:620px}
+.room-blocked code{font-size:12px;background:#1b202b;color:#cfd3d8;padding:1px 6px;border-radius:5px}
+.room-blocked a{color:#9cc0ff}
+.room-note{margin-top:8px;font-size:12px;color:var(--muted,#5d6878)}
+@media (max-width:900px){.room-frame{height:420px}}
+@media (max-width:640px){.room-frame{height:320px}.room-card-actions{margin-left:0}}
+#section-room:fullscreen{background:var(--card,#fff);border-radius:0;padding:16px;display:flex;flex-direction:column;box-sizing:border-box}
+#section-room:fullscreen .room-card-head{margin-bottom:10px}
+#section-room:fullscreen .room-frame-wrap{flex:1;min-height:0}
+#section-room:fullscreen .room-frame{height:100%}
+</style>
 </head>
 <body>
   <div class="bg-decor" aria-hidden="true"></div>
@@ -1797,6 +1821,24 @@ button:active:not(:disabled) {
         <button class="metric metric-link" data-view="sessions" data-target="section-pending"><span>待处理请求</span><strong id="metricPending">—</strong><small>提问与工具审批 <span aria-hidden="true">↗</span></small></button>
       </div>
       <div class="grid">
+        <!-- 角色的房间（2026-11-11 duty）：所有卡片最上面、整宽、iframe 载入本机 5180 -->
+        <section id="section-room" class="card span-all room-card" aria-label="角色的房间">
+          <div class="room-card-head">
+            <h2>角色的房间</h2>
+            <div class="room-card-actions">
+              <button type="button" class="room-btn" id="roomOpenBtn">新窗口打开</button>
+              <button type="button" class="room-btn primary" id="roomFullscreenBtn">⛶ 全屏房间</button>
+            </div>
+          </div>
+          <div class="room-frame-wrap" id="roomFrameWrap">
+            <iframe id="roomFrame" class="room-frame" title="角色的房间" allow="fullscreen; autoplay" allowfullscreen referrerpolicy="no-referrer" loading="eager"></iframe>
+            <div class="room-blocked" id="roomBlocked" hidden>
+              <p>房间页内嵌被控制台的安全策略挡住了：bridge 给 3100 的页面发的 CSP 是 <code>default-src 'self'</code>，跨端口（5180）的 iframe 会被拦下来。</p>
+              <p>可先点右上角「新窗口打开」；等 bridge 放行 <code>frame-src http://127.0.0.1:5180</code>（需一次桥接重启）后，这里会自动显示房间。</p>
+            </div>
+          </div>
+          <div class="room-note">本机 5180 的实时房间（服务端已 <code>cache-control: no-store</code>）；全屏后按 Esc 或点「退出全屏」返回。</div>
+        </section>
         <section id="section-mode" data-page="overview" class="card span-all">
       <h2>运行模式</h2>
       <div class="mode-row" id="modeRow">
@@ -2169,7 +2211,7 @@ button:active:not(:disabled) {
         <label style="flex:1">推荐普通消息概率</label><input type="number" id="v2RecProb" step="0.05" min="0" max="1" style="width:80px">
       </div>
       <div class="row">
-        <label style="flex:1">推荐关键词（逗号分隔）</label><input type="text" id="v2RecKeywords" placeholder="角色, DeepSeek" style="flex:1">
+        <label style="flex:1">推荐关键词（逗号分隔）</label><input type="text" id="v2RecKeywords" placeholder="群友A鱼, DeepSeek" style="flex:1">
       </div>
       <div class="row">
         <label style="flex:1">推荐 @ 唤醒</label><input type="checkbox" id="v2RecAt" style="width:auto">
@@ -5410,6 +5452,41 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+</script>
+<script>
+/* ===== 角色的房间卡片（2026-11-11 duty）：iframe 载入 5180 + 全屏 + CSP 兜底提示 ===== */
+(function () {
+  var card = document.getElementById('section-room');
+  var frame = document.getElementById('roomFrame');
+  if (!card || !frame) return;
+  var ROOM = 'http://' + (location.hostname || '127.0.0.1') + ':5180/';
+  var blocked = document.getElementById('roomBlocked');
+  var fsBtn = document.getElementById('roomFullscreenBtn');
+  var openBtn = document.getElementById('roomOpenBtn');
+  var loaded = false;
+  function showBlocked() { if (blocked) blocked.hidden = false; }
+  frame.addEventListener('load', function () { loaded = true; });
+  // CSP 拦截：浏览器会派发 securitypolicyviolation（frame-src/default-src），直接据此展示兜底
+  document.addEventListener('securitypolicyviolation', function (e) {
+    var d = String(e.violatedDirective || '');
+    var u = String(e.blockedURI || '');
+    if ((d.indexOf('frame-src') >= 0 || d.indexOf('default-src') >= 0) && u.indexOf(':5180') >= 0) showBlocked();
+  });
+  frame.src = ROOM + '?v=' + Date.now();
+  // 兜底：4 秒后仍没成功加载（或没触发事件）且没有可读内容 → 展示可操作提示
+  setTimeout(function () { if (!loaded) showBlocked(); }, 4000);
+  function openRoom() { window.open(ROOM, '_blank', 'noopener'); }
+  if (openBtn) openBtn.addEventListener('click', openRoom);
+  function fsNow() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  function syncLabel() { if (fsBtn) fsBtn.textContent = fsNow() ? '⤢ 退出全屏' : '⛶ 全屏房间'; }
+  if (fsBtn) fsBtn.addEventListener('click', function () {
+    if (fsNow()) { (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document); return; }
+    var req = card.requestFullscreen || card.webkitRequestFullscreen;
+    if (req) req.call(card); else openRoom();
+  });
+  document.addEventListener('fullscreenchange', syncLabel);
+  document.addEventListener('webkitfullscreenchange', syncLabel);
+})();
 </script>
 </body>
 </html>

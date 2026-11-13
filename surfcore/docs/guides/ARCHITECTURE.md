@@ -307,7 +307,7 @@ QQ 仍读仓库根的 `config.json`，B站 仍读自己的配置，插件只是�
 | **角色包** | `~/.dsh/surfcore/characters/<id>/`：人格卡 + 记忆卡 + B站 行为账本 |
 | **唤醒配置（WakeConfig）** | 什么条件叫醒 agent：@/名字/关键词/提问/拍一拍/概率/指定成员 |
 | **鱼群守则** | 判断"这堆人是不是在刷屏/围攻"并决定忽略还是聚拢的规则 |
-| **PITFALLS** | 踩坑档案（每条都有现象/根因/处置/验证；开发期文档，未随发布包提供） |
+| **PITFALLS** | `docs/PITFALLS.md`，踩坑档案（每条都有现象/根因/处置/验证） |
 
 ---
 
@@ -333,5 +333,5 @@ QQ 仍读仓库根的 `config.json`，B站 仍读自己的配置，插件只是�
 | 目的机制 | [PURPOSE_OUTREACH.md](PURPOSE_OUTREACH.md) |
 | 对话收尾 | [CONVERSATION_CLOSURE.md](CONVERSATION_CLOSURE.md) |
 | 安全基线 | [SECURITY_BASELINE.md](SECURITY_BASELINE.md) |
-| 踩过的坑 | 踩坑档案（未随发布包提供） |
-| 风险台账 | 风险台账（未随发布包提供） |
+| 踩过的坑 | [../PITFALLS.md](../PITFALLS.md) |
+| 风险台账 | [../RISK_REGISTER.md](../RISK_REGISTER.md) |

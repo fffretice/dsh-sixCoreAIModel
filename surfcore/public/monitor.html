@@ -31,6 +31,17 @@
   .muted{color:#7c828b;font-size:12px}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:900px){.row2{grid-template-columns:1fr}}
+  .frame{width:100%;border:0;border-radius:8px;background:#05060b;display:block}
+  /* 角色的房间（2026-11-11 duty）：整宽 520px、窄屏自适应、全屏按钮 */
+  #roomCard h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  #roomCard .room-fs-btn{margin-left:auto;font-size:11px;padding:4px 10px;border-radius:999px;background:#242830;color:#cfd3d8;border:1px solid #2d333c;cursor:pointer;font-family:inherit}
+  #roomCard .room-fs-btn:hover{border-color:#3a4250}
+  #roomCard .room-frame{height:520px;background:#05060b}
+  @media (max-width:820px){#roomCard .room-frame{height:400px}}
+  @media (max-width:560px){#roomCard .room-frame{height:300px}}
+  #roomCard:fullscreen{background:#05070c;border:0;border-radius:0;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px;box-sizing:border-box}
+  #roomCard:fullscreen h2{margin:0}
+  #roomCard:fullscreen .room-frame{height:auto;flex:1;min-height:0}
   .talk{max-height:840px;overflow:auto;font-size:14px;line-height:1.65}
   .talk .item{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);max-width:680px}
   .talk .meta{color:#7d8590;font-size:11.5px;font-family:ui-monospace,monospace}
@@ -54,6 +65,12 @@
   <a id="roomLink" href="#" style="margin-left:auto;font-size:12px;color:#8b919a;text-decoration:none;border:1px solid #23262b;border-radius:999px;padding:3px 10px">去房间 →</a>
 </header>
 <main>
+  <section id="roomCard"><h2>角色的房间 <span class="muted" style="font-size:11px;font-weight:400">5180 实时 · 可拖动/缩放</span>
+    <button type="button" class="room-fs-btn" id="roomFullscreenBtn">⛶ 全屏房间</button></h2>
+    <iframe id="roomFrame" class="frame room-frame" title="角色的房间" allow="fullscreen; autoplay" allowfullscreen referrerpolicy="no-referrer"></iframe>
+    <div class="muted" style="margin-top:6px">房间是本机 5180 的实时页面（服务端 <code>cache-control: no-store</code>）；<a id="roomCombo" href="#" style="color:#8b919a">打开合体页（房间+监控台）→</a></div>
+  </section>
+
   <section><h2>今日活跃额度</h2>
     <div id="quotaRows"></div>
     <div class="big" style="margin-top:12px">
@@ -75,6 +92,11 @@
   <section><h2>情绪核心</h2>
     <div id="moodRows"></div>
     <div class="muted" id="moodState"></div>
+  </section>
+
+  <section><h2>3D 记忆海</h2>
+    <iframe id="memorySeaFrame" class="frame" style="height:440px" title="角色的记忆海"></iframe>
+    <div class="muted" style="margin-top:6px">拖动旋转 · 滚轮缩放 · 点一颗星看原文（和本机监控台 app 同一份记忆数据）</div>
   </section>
 
   <section><h2>这个群在聊</h2>
@@ -158,6 +180,25 @@ const q = new URLSearchParams(location.search);
 const TOKEN = q.get('token') || '';
 const api = (p, opt={}) => fetch(p, { ...opt, headers: { 'x-console-token': TOKEN, ...(opt.body?{'Content-Type':'application/json'}:{}), ...(opt.headers||{}) } });
 const $ = (id) => document.getElementById(id);
+const HOST = location.hostname;
+const roomFrame = document.getElementById('roomFrame');
+if (roomFrame) roomFrame.src = `http://${HOST}:5180/?v=${Date.now()}`;
+// 角色的房间：全屏按钮（全屏卡片，保证「退出全屏」按钮始终可点；iframe 在卡片内占满）
+const roomCard = document.getElementById('roomCard');
+const roomFsBtn = document.getElementById('roomFullscreenBtn');
+const roomFsNow = () => document.fullscreenElement || document.webkitFullscreenElement;
+const syncRoomFs = () => { if (roomFsBtn) roomFsBtn.textContent = roomFsNow() ? '⤢ 退出全屏' : '⛶ 全屏房间'; };
+if (roomFsBtn && roomCard) roomFsBtn.addEventListener('click', () => {
+  if (roomFsNow()) { (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document); return; }
+  const req = roomCard.requestFullscreen || roomCard.webkitRequestFullscreen;
+  if (req) req.call(roomCard);
+});
+document.addEventListener('fullscreenchange', syncRoomFs);
+document.addEventListener('webkitfullscreenchange', syncRoomFs);
+const roomCombo = document.getElementById('roomCombo');
+if (roomCombo) roomCombo.href = `http://${HOST}:5180/combo.html`;
+const memorySeaFrame = document.getElementById('memorySeaFrame');
+if (memorySeaFrame) memorySeaFrame.src = '/memory-sea?token=' + encodeURIComponent(TOKEN);
 const sym = (t) => (t && t.symbol) || '¥';
 
 async function loadRules() {

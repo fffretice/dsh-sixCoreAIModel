@@ -50,7 +50,7 @@ SnowLuma 的 WebUI/控制台端口**会漂移**（见过 5099、5100）。
 | 配置落盘 | `<SnowLuma>/app/config/onebot_<QQ号>.json` |
 
 注意：`snowluma.launcherPath` 填**根目录**（里面有 `app`），`snowluma.homeDir` 填 `app` 目录
-（里面有 `config`）——填反了会「装好了但检测不到」（见 踩坑记录（未随发布包提供））。
+（里面有 `config`）——填反了会「装好了但检测不到」（见 [case](../cases/2026-10-28-snowluma-detect.md)）。
 
 ## 四、为什么「有正在进行的任务，不让关」
 
@@ -101,4 +101,4 @@ SnowLuma 的 WebUI/控制台端口**会漂移**（见过 5099、5100）。
 ## 相关文档
 
 - 安装步骤：[INSTALL.md](INSTALL.md) 第 1 步
-- 检测不到的 bug 记录：踩坑记录（未随发布包提供）
+- 检测不到的 bug 记录：[docs/cases/2026-10-28-snowluma-detect.md](../cases/2026-10-28-snowluma-detect.md)

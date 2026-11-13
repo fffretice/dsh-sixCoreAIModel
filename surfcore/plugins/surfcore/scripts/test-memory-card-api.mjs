@@ -31,12 +31,12 @@ process.env.SURFCORE_DISABLE_MEMORY_TIMER = '1';
 const now = Date.now();
 fs.writeFileSync(path.join(dshHome, 'surfcore', 'memory', 'memory-inbox.jsonl'), [
   JSON.stringify({ at: new Date(now - 60_000).toISOString(), kind: 'private', sender: '主人', senderId: '10001', isOwner: true, private: true, direct: true, text: '第一次跟角色说：以后就是一家人了' }),
-  JSON.stringify({ at: new Date(now - 30_000).toISOString(), kind: 'group', sender: '群友A', senderId: '1000000005', isOwner: false, direct: true, text: '角色今天在吗' }),
+  JSON.stringify({ at: new Date(now - 30_000).toISOString(), kind: 'group', sender: 'omm', senderId: '2373982492', isOwner: false, direct: true, text: '角色今天在吗' }),
 ].join('\n') + '\n');
 fs.writeFileSync(path.join(qqbotRoot, 'state', 'bili-memory.json'), `${JSON.stringify({
   generatedAt: new Date(now).toISOString(),
   entries: [
-    { id: 'bv:test001', type: 'video', title: '招牌词的二创', reason: '可爱又好笑', score: 15, favorite: true, at: new Date(now - 3_600_000).toISOString() },
+    { id: 'bv:test001', type: 'video', title: '鲸鱼娘的二创', reason: '可爱又好笑', score: 15, favorite: true, at: new Date(now - 3_600_000).toISOString() },
   ],
 }, null, 2)}\n`);
 
@@ -71,12 +71,12 @@ try {
   // B站 注入块不能出现 QQ 私事
   assert.equal(snap.promptBili.includes('一家人'), false);
   assert.ok(mod.memoryCardPromptBlock('qq').includes('记忆卡'));
-  assert.ok(mod.memoryCardPromptBlock('bili').includes('B站') || mod.memoryCardPromptBlock('bili').includes('招牌词'));
+  assert.ok(mod.memoryCardPromptBlock('bili').includes('B站') || mod.memoryCardPromptBlock('bili').includes('鲸鱼娘'));
   // 全量卡检索
-  const fullSnap = mod.fullMemoryCardSnapshot({ q: '招牌词', limit: 10 });
+  const fullSnap = mod.fullMemoryCardSnapshot({ q: '鲸鱼娘', limit: 10 });
   assert.equal(fullSnap.fullLoaded, false);
   assert.equal(fullSnap.records.length >= 1, true);
-  assert.match(fullSnap.records[0].text, /招牌词/);
+  assert.match(fullSnap.records[0].text, /鲸鱼娘/);
 
   // 3) pin / add / forget
   const ownerRecord = snap.records.find((record) => record.tags.includes('owner'));
@@ -106,7 +106,7 @@ try {
   assert.equal(fullAfterForget.records.length >= 1, true, '全量卡应保留已从衰减卡忘记的记忆');
 
   // 3.5) 多选任意记忆合并为一个事件（不改变初次相遇）
-  await mod.applyMemoryCardAction('add', { text: '合并素材一：B站看到招牌词', importance: 50, scope: 'bili' });
+  await mod.applyMemoryCardAction('add', { text: '合并素材一：B站看到鲸鱼娘', importance: 50, scope: 'bili' });
   await mod.applyMemoryCardAction('add', { text: '合并素材二：B站看到猫猫', importance: 55, scope: 'bili' });
   const mergeCandidates = mod.memoryCardSnapshot().records
     .filter((record) => record.tags.includes('manual'))

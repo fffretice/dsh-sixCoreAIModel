@@ -205,3 +205,30 @@ export async function synthesizeMimoToFile({ text, stateDir, outDir, cacheVersio
   pruneCache(outDir);
   return { path: file, durationMs: wavDurationMs(fs.readFileSync(file)), cached: false };
 }
+
+// 2026-11-10（task-34 TTS 缓存）：情绪快照。
+// 背景：V2 服务按「显式 style > 文本关键词 > mood 闸门」选情绪，但桥接本地缓存 key
+// 不含情绪 → 同一句话在 mood 变化后被复用旧 wav（旧情绪）。
+// 修法：桥接把当时的情绪快照放进 style，ttsKey 自然分桶；服务看到显式 emotion 也直接用。
+// 阈值需与服务 qq-service.py 保持一致（可用同名环境变量覆盖）。
+const EMO_DEFAULTS = { happyMoodMin: 0.8, happySocialMin: 0.6, sleepyEnergyMax: 0.25 };
+const EMO_KEYWORDS = { sleepy: ['晚安', '睡了', '困'], happy: ['哈哈', '开心', '好耶'] };
+export function emotionSnapshotFrom(text, dims = {}, env = process.env) {
+  const say = String(text ?? '');
+  const num = (name, fallback) => {
+    const v = Number(env?.[name]);
+    return Number.isFinite(v) ? v : fallback;
+  };
+  const sleepyMax = num('V2_SLEEPY_ENERGY_MAX', EMO_DEFAULTS.sleepyEnergyMax);
+  const happyMood = num('V2_HAPPY_MOOD_MIN', EMO_DEFAULTS.happyMoodMin);
+  const happySocial = num('V2_HAPPY_SOCIAL_MIN', EMO_DEFAULTS.happySocialMin);
+  // 先文本关键词（sleepy 优先，与服务一致）
+  if (EMO_KEYWORDS.sleepy.some((k) => say.includes(k))) return 'sleepy';
+  if (EMO_KEYWORDS.happy.some((k) => say.includes(k))) return 'happy';
+  const energy = Number(dims?.energy ?? dims?.dims?.energy);
+  const mood = Number(dims?.mood ?? dims?.dims?.mood);
+  const social = Number(dims?.social ?? dims?.dims?.social);
+  if (Number.isFinite(energy) && energy < sleepyMax) return 'sleepy';
+  if (Number.isFinite(mood) && Number.isFinite(social) && mood >= happyMood && social >= happySocial) return 'happy';
+  return 'normal';
+}

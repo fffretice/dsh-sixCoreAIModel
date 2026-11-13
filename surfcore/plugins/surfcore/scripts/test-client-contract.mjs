@@ -302,7 +302,7 @@ assert.ok(source.includes('不读浏览器登录的账号'), '抓取说明没有
 assert.ok(source.includes('function BiliQrModal'), '缺少扫码登录弹窗');
 assert.ok(source.includes('"/bili/qr/start"'), '扫码弹窗没有调用 /bili/qr/start');
 assert.ok(source.includes('/bili/qr/poll'), '扫码弹窗没有轮询 /bili/qr/poll');
-assert.ok(source.includes('扫码登录招牌词'), 'B站 凭据卡缺少「扫码登录招牌词」');
+assert.ok(source.includes('扫码登录小招牌词'), 'B站 凭据卡缺少「扫码登录小招牌词」');
 assert.ok(source.includes('扫码登录主人的 B站 账号'), '主人扫码弹窗标题缺失');
 assert.ok(source.includes('抓取主人'), '抓取目标缺少「抓取主人」');
 assert.ok(source.includes('["preferences", "weights"]'), '口味权重没有落到 preferences.weights');
@@ -324,7 +324,7 @@ const platformsSource = fs.readFileSync(path.join(import.meta.dirname, '..', 'li
 assert.ok(!/weibo/.test(platformsSource), 'platforms.js 里还留着 weibo 占位');
 assert.ok(!/微博/.test(source), '设置页还在提微博（用户明确不做）');
 
-// 2026-10-23 用户要求：设置页「早安」处要写明「招牌词需要与问候对象互为 QQ 好友」。
+// 2026-10-23 用户要求：设置页「早安」处要写明「小招牌词需要与问候对象互为 QQ 好友」。
 // QQ 对陌生人/单向好友的私聊会直接拒绝（result=16），不写清楚就会重演「到点没收到」。
 assert.ok(source.includes('互为 QQ 好友'), '早安卡片没有写明「必须互为 QQ 好友」');
 assert.ok(source.includes('result=16'), '早安卡片没有说明非好友私聊会被 QQ 拒绝（result=16）');

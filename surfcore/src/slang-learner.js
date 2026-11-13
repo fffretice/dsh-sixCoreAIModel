@@ -85,6 +85,36 @@ export function normalizeSlangEntry(raw) {
     confirmedAt: Math.max(0, Number(entry.confirmedAt) || 0),
     confirmedBy: entry.confirmedBy === 'self' ? 'self' : '',
     selfUsage: clip(entry.selfUsage, SLANG_FIELD_MAX),
+    // 2026-11-10（task-36 黑话闭环）：质量/来源/范围/风险/复核/使用六组字段。
+    // ⚠️ normalize 是白名单式：这些字段不在返回值里，每次 saveSlang 都会被丢掉。
+    quality: ['researched', 'quote-only', 'self', 'blank'].includes(entry.quality) ? entry.quality : '',
+    origin: ['group', 'search', 'manual', 'self-room'].includes(entry.origin) ? entry.origin : '',
+    originKey: clip(entry.originKey, 80),
+    scope: entry.scope === 'group' ? 'group' : 'global',
+    groupKeys: Array.isArray(entry.groupKeys) ? entry.groupKeys.map((k) => clip(k, 40)).filter(Boolean).slice(0, 6) : [],
+    aliases: Array.isArray(entry.aliases) ? entry.aliases.map((k) => clip(k, 40)).filter(Boolean).slice(0, 8) : [],
+    researchState: ['none', 'queued', 'verified', 'failed'].includes(entry.researchState) ? entry.researchState : 'none',
+    confidence: Math.min(1, Math.max(0, Number(entry.confidence) || 0)),
+    riskLevel: ['none', 'mild', 'sensitive', 'offensive', 'nsfw'].includes(entry.riskLevel) ? entry.riskLevel : '',
+    freshness: ['stable', 'trend', 'unknown'].includes(entry.freshness) ? entry.freshness : 'unknown',
+    lastSeenAt: Math.max(0, Number(entry.lastSeenAt) || 0),
+    review: entry.review && typeof entry.review === 'object'
+      ? {
+        shownCount: Math.max(0, Number(entry.review.shownCount) || 0),
+        lastShownAt: Math.max(0, Number(entry.review.lastShownAt) || 0),
+        deferredUntil: Math.max(0, Number(entry.review.deferredUntil) || 0),
+        lastDecision: ['accepted', 'rejected', 'ignored'].includes(entry.review.lastDecision) ? entry.review.lastDecision : '',
+        state: ['cold', ''].includes(String(entry.review.state || '')) ? String(entry.review.state || '') : '',
+      }
+      : { shownCount: 0, lastShownAt: 0, deferredUntil: 0, lastDecision: '', state: '' },
+    usage: entry.usage && typeof entry.usage === 'object'
+      ? {
+        count: Math.max(0, Number(entry.usage.count) || 0),
+        lastUsedAt: Math.max(0, Number(entry.usage.lastUsedAt) || 0),
+        lastLandedAt: Math.max(0, Number(entry.usage.lastLandedAt) || 0),
+        landedCount: Math.max(0, Number(entry.usage.landedCount) || 0),
+      }
+      : { count: 0, lastUsedAt: 0, lastLandedAt: 0, landedCount: 0 },
     rejectedAt: Math.max(0, Number(entry.rejectedAt) || 0),
     rejectedBy: entry.rejectedBy === 'self' ? 'self' : '',
     createdAt: String(entry.createdAt || nowIso()),
@@ -316,7 +346,7 @@ export function screenSlangWindow(messages, { known = [], minRepeat = 2 } = {}) 
     const s = String(m?.sender ?? '').trim();
     if (s) localStop.add(s);
   }
-  for (const fixed of ['AAA', '角色', '招牌词', '神秘鱼', '招牌词', 'DeepSeek', 'deepseek', 'dsh', 'DSH']) localStop.add(fixed);
+  for (const fixed of ['AAA', '角色', '招牌词', '神秘鱼', '鲸鱼', 'DeepSeek', 'deepseek', 'dsh', 'DSH']) localStop.add(fixed);
   const urlLike = /(?:https?:\/\/|www\.|b23\.tv|bilibili\.com|\b[A-Za-z0-9]+\.(?:tv|com|cn|net|org)\b)/i;
   // URL/链接先整段剔掉：Segmenter 会把 https、b23、BV 号切成「词」，它们不是黑话。
   const cleanText = (t) => String(t ?? '').replace(/https?:\/\/\S+/gi, ' ').replace(/\b(?:www\.)?[A-Za-z0-9-]+\.(?:tv|com|cn|net|org|io)\S*/gi, ' ');
