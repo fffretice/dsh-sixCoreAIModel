@@ -1982,7 +1982,7 @@ function sectionize(card, { platform = 'all', now = Date.now(), config = {}, lim
   for (const record of visible.filter((item) => !item.pinned && item.platform !== 'pet' && item.tags.includes('owner') && item.isInitial)) push(initial, record, 'initial');
   // 「和主人」先挑（重要、有叙事），剩下的近期记录再进「最近记得的」。
   for (const record of visible.filter((item) => !item.pinned && item.platform !== 'pet' && item.tags.includes('owner') && !item.isInitial)) push(owner, record, 'owner');
-  // 2026-10-30 老大：最近发生的事也该出现。
+  // 2026-10-30 管理员：最近发生的事也该出现。
   // 以前这里只收**非 owner** 记录，而她的记录几乎全带 owner 标签 → 这一节永远是空的。
   // 现在 owner 没被挑走的近期记录也进来，按时间倒序。
   // 2026-11-04：这一节以前要求「不是最初」，可整张卡才 7 天，按 offset 算概率
@@ -2037,7 +2037,7 @@ export function renderMemoryCard(card, options = {}) {
   const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
   const cfg = normalizeMemoryCardConfig(options.config ?? {});
   const maxChars = full ? 0 : clampInt(options.maxChars, 0, 0, 20000);
-  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 6, bili: 2, qq: 4, pet: 2, fuzzy: 3 });
+  const limitsForSections = full ? null : (platform === 'bili' ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 } : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 8, bili: 2, qq: 6, pet: 2, fuzzy: 3 });
   // 2026-11-08（task-12）群聊视角：按结构化来源分视图，私聊来源在 sectionize 里就排除了，
   // 不再靠「（私聊里的，群里别提）」这种文本标签兜底。
   const groupView = !full && platform === 'qq' && options.perspective === 'group';
@@ -2050,7 +2050,9 @@ export function renderMemoryCard(card, options = {}) {
     ? { firstMet: 9999, anchors: 9999, digest: 9999, initial: 9999, owner: 9999, recent: 9999, bili: 9999, qq: 9999, pet: 9999, fuzzy: 9999 }
     : (platform === 'bili'
       ? { firstMet: 0, anchors: 4, digest: 0, initial: 0, owner: 0, recent: 6, bili: 8, qq: 0, pet: 0, fuzzy: 3 }
-      : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 6, bili: 2, qq: 4, pet: 2, fuzzy: 3 });
+      : (groupView
+        ? { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 8, bili: 2, qq: 6, pet: 2, fuzzy: 3 }
+        : { firstMet: 1, anchors: 5, digest: 20, initial: 4, owner: 6, recent: 6, bili: 2, qq: 4, pet: 2, fuzzy: 3 }));
   const calls = [
     { key: 'firstMet', title: '## 初次相遇（和主人）', priority: 120, lines: sections.firstMet.slice(0, limits.firstMet).map((record) => fmtLine(record)) },
     { key: 'anchors', title: '## 永远不会忘的', priority: 100, lines: sections.anchors.slice(0, limits.anchors).map((record) => fmtLine(record)) },

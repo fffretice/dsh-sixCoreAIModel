@@ -141,7 +141,7 @@
       "deepseek",
       "群友A鱼",
       "主兴趣",
-      "鲸鱼",
+      "招牌词",
       "d指导",
       "在吗"
     ],
@@ -232,7 +232,7 @@
         "d师傅",
         "深度求索",
         "主兴趣",
-        "鲸鱼",
+        "招牌词",
         "DeepSeek V3",
         "DeepSeek R1",
         "R1"
@@ -381,6 +381,11 @@
     "rulesGate": {
       "_note": "群里 owner 消息进规则核心前的语义闸：selfNicknames 填她自己的昵称（她自称/被@的名字），@ 别人时不会被当成教学句。",
       "selfNicknames": []
+    },
+    "fishtalk": {
+      "_note": "说话前检查（可选）：群聊发言前调本地 fishtalk 查鱼八股/AI 腔/重复语料。需先全局安装 npm i -g github:Nozzi2455/fishtalk；找不到命令时自动跳过。",
+      "enabled": true,
+      "command": ""
     }
   },
   "webSearch": {

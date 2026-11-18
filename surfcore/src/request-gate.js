@@ -118,7 +118,7 @@ export function classifyRequest(text, context = {}) {
   // 3) 逗她信号
   if (hasTeaseAct) { scores.tease += 3; reasons.push('tease-act'); }
   if (hasTeaseInsult) {
-    const directed = /你(?!老大)/.test(t) || /^(笨蛋|蠢|傻|煞笔|废物)/.test(t);
+    const directed = /你(?!管理员)/.test(t) || /^(笨蛋|蠢|傻|煞笔|废物)/.test(t);
     const complaint = /(煞笔|傻|蠢)/.test(t) && /(这|那|怎么|哪)/.test(t) && !/你/.test(t);
     if (directed && !complaint) { scores.tease += 2; reasons.push('tease-insult'); }
     if (/(母性|吃醋|败鱼)/.test(t)) { scores.tease += 2; reasons.push('tease-context-word'); }

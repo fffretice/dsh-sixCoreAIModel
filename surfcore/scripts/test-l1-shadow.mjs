@@ -11,7 +11,7 @@ test('L1：五类信息 + 闲聊分类', () => {
   const cases = [
     ['你还记得上次说的那个卡池吗', 'past'],
     ['她是谁啊，叫什么名字', 'person'],
-    ['这个可以吗？是不是该先问老大', 'rule'],
+    ['这个可以吗？是不是该先问管理员', 'rule'],
     ['这个梗什么意思，出处是哪', 'meme'],
     ['学马下一期卡池什么时候开，多少抽', 'fact'],
     ['今天天气不错啊（', 'chat'],
@@ -56,7 +56,7 @@ test('L1：shadow 记录结构（明确不注入）', () => {
     key: 'group:1000000002',
     sender: '群友',
     text: '你还记得上次那个卡池吗',
-    context: [{ sender: '老大', text: '学马下期 11/16', isSelf: false }],
+    context: [{ sender: '管理员', text: '学马下期 11/16', isSelf: false }],
     retrieval: {
       candidates: [{ source: '记忆卡', text: '学马卡池 11/16 更新', score: 3 }],
       sourcesTried: ['memory-card', 'topics'],

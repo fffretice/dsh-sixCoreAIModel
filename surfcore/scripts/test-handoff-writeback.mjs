@@ -60,7 +60,7 @@ test('原子覆盖写：同文件两次写入只保留最新，不追加', () =>
   assert.ok(first);
 });
 
-test('写回分类：老大原话/约定/偏好不误杀，闲聊/问题/日志拒绝', () => {
+test('写回分类：管理员原话/约定/偏好不误杀，闲聊/问题/日志拒绝', () => {
   const date = '2026-11-10';
   const accept = [
     { text: '以后学马氏的东西丢我的群里就够了', source: 'qq-owner', date, createdAt: `${date}T12:00:00+08:00` },
@@ -95,7 +95,7 @@ test('写回分类：老大原话/约定/偏好不误杀，闲聊/问题/日志�
 });
 
 test('批量门：单次 ≤10 行、≤2KB；超出 quarantine 不整批丢', () => {
-  const recs = Array.from({ length: 14 }, (_, i) => ({ text: `以后第${i}条：别丢小兴群`, source: 'qq-owner', date: '2026-11-10' }));
+  const recs = Array.from({ length: 14 }, (_, i) => ({ text: `以后第${i}条：别丢群友C群`, source: 'qq-owner', date: '2026-11-10' }));
   const out = classifyWritebackBatch(recs);
   const accepted = out.results.filter((r) => r.action === 'accept').length;
   const limited = out.results.filter((r) => r.reason === 'batch_limit').length;

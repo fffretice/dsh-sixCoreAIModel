@@ -108,8 +108,8 @@ export function renderRestReplayClue(record, { convKey = '', now = Date.now(), m
   const time = roughTime(age);
   const isGroup = String(convKey || '').startsWith('group:');
   const speaker = String(record.speaker || '');
-  const who = isGroup && speaker ? `${speaker}在群里` : (isGroup ? '群里' : (speaker || '你和老大'));
-  const head = isGroup ? `${time}${who}聊过一件事，开头是「${text.slice(0, 18)}…」` : `${time}你和老大聊过一件事，开头是「${text.slice(0, 18)}…」`;
+  const who = isGroup && speaker ? `${speaker}在群里` : (isGroup ? '群里' : (speaker || '你和管理员'));
+  const head = isGroup ? `${time}${who}聊过一件事，开头是「${text.slice(0, 18)}…」` : `${time}你和管理员聊过一件事，开头是「${text.slice(0, 18)}…」`;
   let out = `${head}——想得起后来怎样了吗？（想不起就说想不起，不用硬编）`;
   if (out.length > maxChars) out = `${out.slice(0, maxChars - 1)}…`;
   return out;

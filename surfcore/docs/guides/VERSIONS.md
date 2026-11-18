@@ -42,7 +42,7 @@
 
 | 组件 | 仓库 | 当前版本 | 版本清单 | 升级方式 |
 | --- | --- | --- | --- | --- |
-| SurfCore 本体 | `your-org/surfcore` | **0.3.0** | git tag | `git` 快进（`--ff-only`） |
+| SurfCore 本体 | `your-org/surfcore` | **1.4.0** | git tag | `git` 快进（`--ff-only`） |
 | 语音包（本地） | `your-org/surfvoicelocal` | **0.1.0** | `models.json` | git 快进 / 拉模型 |
 | 语音包（云端） | `your-org/surfvoicecloud` | **0.1.0** | `models.json` | git 快进 / 拉模型 |
 | 桌宠 | `your-org/surfpet` | **0.2.0** | `version.json` | 下 zip → sha256 → 替换 |

@@ -287,7 +287,7 @@ async function postJson(url, addresses, options) {
 
 
 // ── 用量记账（2026-10-31）──────────────────────────────
-// 老大要在监控台里单列「自发性上网」的花费，所以每次搜索都把真实 usage 记一行。
+// 管理员要在监控台里单列「自发性上网」的花费，所以每次搜索都把真实 usage 记一行。
 // 价格是估算口径，可在 config.webSearch.pricing 里改（不是官方账单）。
 function usageFile() {
   const root = process.env.SURFCORE_DIR || '/Users/{{USER}}/SurfCore';
@@ -295,7 +295,7 @@ function usageFile() {
 }
 
 // ── 搜索记忆（2026-11-02）────────────────────────────
-// 老大：「她看到群里的内容会自己搜，但搜出来并没有学会，不划算。」
+// 管理员：「她看到群里的内容会自己搜，但搜出来并没有学会，不划算。」
 // 所以把「搜过什么、搜到哪些条目」留一份，注入时让她看得见自己的检索史。
 // 注意：这里只留标题/摘要，不留全文；只为「想起来查过什么」，不是给她照抄。
 function searchMemoryFile() {

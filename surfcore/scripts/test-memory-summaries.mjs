@@ -27,6 +27,6 @@ test('摘要写入：13 条已审摘要齐备且不含 QQ 号/群号等隐私', 
     assert.ok(text.length >= 10 && text.length <= 90, `${name} 摘要长度异常：${text.length}`);
     assert.doesNotMatch(text, /\d{8,}/, `${name} 摘要不应含长数字（QQ/群号）：${text}`);
   }
-  assert.match(APPROVED_SUMMARIES['B站和兴趣'], /先私聊老大/);
+  assert.match(APPROVED_SUMMARIES['B站和兴趣'], /先私聊管理员/);
   assert.match(APPROVED_SUMMARIES['这台机器'], /别在群里聊运维/);
 });

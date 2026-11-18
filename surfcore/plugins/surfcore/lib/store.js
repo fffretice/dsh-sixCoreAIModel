@@ -246,7 +246,7 @@ export function backupFile(file, label) {
 
 export function pruneBackups(keep = 40) {
   try {
-    // 2026-11-13（老大定：要运营完整记忆数据库，备份先不删）：
+    // 2026-11-13（管理员定：要运营完整记忆数据库，备份先不删）：
     // 默认**不删除任何备份**；只有 unified 配置里 backupPrune.enabled === true 才按下面规则清理。
     // 想开的时候在 ~/.dsh/surfcore/config.json 里加：
     //   "backupPrune": { "enabled": true, "keep": 100, "maxTotalGB": 2 }
@@ -261,7 +261,7 @@ export function pruneBackups(keep = 40) {
         if (Number.isFinite(Number(bp.maxTotalGB)) && Number(bp.maxTotalGB) > 0) policy.maxTotalGB = Number(bp.maxTotalGB)
       }
     } catch {}
-    if (!policy.enabled) return   // 老大没开：只保留，不删
+    if (!policy.enabled) return   // 管理员没开：只保留，不删
     keep = policy.keep
     // 2026-10-22 审计：旧版是「全局只留 40 条」，而「全部备份」一次就写 8 份，
     // 点 5 次就会把 persona / config 的唯一历史副本挤掉。改为**按来源分别保留**。

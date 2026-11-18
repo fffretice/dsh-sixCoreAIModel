@@ -352,7 +352,7 @@ function defaultPersona(name) {
   return `# 角色卡：${name}\n\n（在这里写这个人格卡：你是谁、说话方式、对谁温柔、边界。）\n`;
 }
 
-/** 从人格卡标题里取角色名（`# 角色卡：小咪` / `# 小咪`）；取不到就用角色名。 */
+/** 从人格卡标题里取角色名（`# 角色卡：角色` / `# 角色`）；取不到就用角色名。 */
 export function personaNameFromText(text, fallback = '') {
   const heading = /^#\s*(?:角色卡[：:]\s*)?(.+)$/m.exec(String(text ?? ''))?.[1]?.trim();
   return (heading || fallback || '').replace(/[#*`]/g, '').trim().slice(0, 40);

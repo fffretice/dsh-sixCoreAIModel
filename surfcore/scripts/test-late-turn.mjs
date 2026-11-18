@@ -11,7 +11,7 @@ let ok = 0; const cases = [];
 const check = (name, pass, got = '') => { cases.push({ name, pass, got }); if (pass) ok += 1; };
 const NOW = Date.parse('2026-11-09T09:50:00+08:00');
 const H = 3600e3;
-const msg = (id, minsAgo, extra = {}) => ({ messageId: String(id), seq: Number(id) || 1, sender: '老大', time: NOW - minsAgo * 60e3, text: `消息${id}`, media: [], hasMedia: false, isSelf: false, ...extra });
+const msg = (id, minsAgo, extra = {}) => ({ messageId: String(id), seq: Number(id) || 1, sender: '管理员', time: NOW - minsAgo * 60e3, text: `消息${id}`, media: [], hasMedia: false, isSelf: false, ...extra });
 
 // 基本块
 {

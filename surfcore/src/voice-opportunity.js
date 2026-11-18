@@ -116,7 +116,7 @@ function counts(allStates, now) {
     for (const s of o.sent) {
       const k = localDayKey(s.at);
       if (k === day) {
-        globalSentToday += 1; // 仅诊断：私聊不计入任何日上限（老大 2026-11-09 改口径）
+        globalSentToday += 1; // 仅诊断：私聊不计入任何日上限（管理员 2026-11-09 改口径）
         if (String(s.scope) === 'group' || String(key).startsWith('group:')) groupSentToday += 1;
       }
       if (String(key).startsWith('group:')) {
@@ -141,7 +141,7 @@ export function voiceHintGate({ key, scene, now = Date.now(), state, allStates =
     return { ok: false, reason: 'scene-hinted-today' };
   }
   const k = counts([{ key, state: st }, ...(allStates || []).filter((x) => x && x.key !== key)], now);
-  // 2026-11-09 老大改口径：语音频控只限群聊——私聊不设每日上限（其他场景/同场景当天一次仍保留）。
+  // 2026-11-09 管理员改口径：语音频控只限群聊——私聊不设每日上限（其他场景/同场景当天一次仍保留）。
   if (String(key).startsWith('group:')) {
     if (k.groupSentToday >= Number(c.maxGlobalPerDay)) return { ok: false, reason: 'group-total-daily-cap' };
     if (k.groupSentToday >= Number(c.maxGroupPerDay)) return { ok: false, reason: 'group-daily-cap' };
@@ -155,7 +155,7 @@ export function voiceHintGate({ key, scene, now = Date.now(), state, allStates =
 export function voiceSendBlock({ key, now = Date.now(), state, allStates = [], cfg = DEFAULT_VOICE_OPPORTUNITY } = {}) {
   const c = { ...DEFAULT_VOICE_OPPORTUNITY, ...(cfg || {}) };
   if (c.enabled === false) return null;
-  // 2026-11-09 老大改口径：私聊不设每日上限（直接放行）；群聊保持硬拦。
+  // 2026-11-09 管理员改口径：私聊不设每日上限（直接放行）；群聊保持硬拦。
   if (!String(key).startsWith('group:')) return null;
   const k = counts([{ key, state: state || {} }, ...(allStates || []).filter((x) => x && x.key !== key)], now);
   if (k.groupSentToday >= Number(c.maxGlobalPerDay)) return `今天群语音已经 ${k.groupSentToday} 条（群语音总额 ≤${c.maxGlobalPerDay} 条/天），改回打字吧`;

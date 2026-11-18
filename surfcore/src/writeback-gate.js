@@ -4,7 +4,7 @@
  * 只收：结论 / 决定 / 坑 / 偏好 / 约定。
  * 每条要求：结论 + 证据 + 日期 + 来源；单次 ≤10 行 / ≤2KB。
  * 输出：accept / reject / quarantine（不确定或证据不全但不该丢的）。
- * 原则：别误杀老大原话、约定、偏好——owner/rule 来源的记录本身可作证据。
+ * 原则：别误杀管理员原话、约定、偏好——owner/rule 来源的记录本身可作证据。
  */
 
 export const WRITEBACK_VERSION = 1;
@@ -28,7 +28,7 @@ const DIRECTIVE_RE = /(记得|记着|别|以后|往后|今后|不要|可以|要|
 // owner 方向问句（反问式指令）：不算纯问句，按「决定/方向」收（PM 2026-11-10 校准）
 const OWNER_DIRECTION_q_RE = /(不应该|要不要|能不能|可不可以|是否|应该)/;
 const IMAGE_OR_MENTION_RE = /^@\S+|\[图片\]|\[表情\]|\[视频\]/;
-const EVIDENCE_RE = /(因为|所以|证据|来源|老大说|他说|她说|群里|私聊|记录|原话|引用|前面|上次|昨天|今天)/;
+const EVIDENCE_RE = /(因为|所以|证据|来源|管理员说|他说|她说|群里|私聊|记录|原话|引用|前面|上次|昨天|今天)/;
 
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const dayOf = (r) => String(r?.date || r?.createdAt || r?.at || '').slice(0, 10);
@@ -73,13 +73,13 @@ export function classifyWriteback(record) {
   }
   if (NOISE_RE.test(text) && text.length < 8) return { ...base, action: 'reject', reason: 'noise' };
   const ownerRule = ['qq-owner', 'rule'].includes(r.source);
-  // 老大/规则里的「以后/往后/今后…」是决定/规矩，别误杀（lead 2026-11-10 口径）
+  // 管理员/规则里的「以后/往后/今后…」是决定/规矩，别误杀（lead 2026-11-10 口径）
   // 纯闲聊/问句/复读/图片@（无祈使/原则标记）直接 reject
   if (IMAGE_OR_MENTION_RE.test(text) && !DIRECTIVE_RE.test(text)) return { ...base, action: 'reject', reason: 'image_or_mention' };
   if (/^(.{1,8})\1+$/.test(text)) return { ...base, action: 'reject', reason: 'repeat' };
   const cat = categoryOf(text) || (ownerRule && /(以后|往后|今后)/.test(text) ? WRITEBACK_CATEGORIES.find((c) => c.key === 'decision') : null);
   if (!cat) {
-    // owner/rule 带祈使/原则/偏好标记：不直接 reject，交人工 quarantine（勿误杀老大原话）
+    // owner/rule 带祈使/原则/偏好标记：不直接 reject，交人工 quarantine（勿误杀管理员原话）
     if (ownerRule && DIRECTIVE_RE.test(text)) {
       return { ...base, action: 'quarantine', category: 'review', label: '待核', reason: 'owner_directive_needs_review', confidence: 0.4, reviewPriority: 'high' };
     }

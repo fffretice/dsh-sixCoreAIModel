@@ -26,7 +26,7 @@ function firstSentence(text, max = 60) {
 }
 function itemText(x) { return norm(typeof x === 'string' ? x : x?.text || ''); }
 function blockedClause(text) {
-  const m = String(text || '').match(/(?:等(?:他|她|它|你|老大|回复|账号)?[^。！？；;，,]{0,24}|还没[^。！？；;，,]{0,24}|没做完[^。！？；;，,]{0,24}|卡(?:在|住)?[^。！？；;，,]{0,24})/);
+  const m = String(text || '').match(/(?:等(?:他|她|它|你|管理员|回复|账号)?[^。！？；;，,]{0,24}|还没[^。！？；;，,]{0,24}|没做完[^。！？；;，,]{0,24}|卡(?:在|住)?[^。！？；;，,]{0,24})/);
   return m ? norm(m[0]).slice(0, 30) : '';
 }
 function itemOrigin(x) { return String(typeof x === 'string' ? 'private' : x?.origin || 'unknown'); }

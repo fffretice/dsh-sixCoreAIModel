@@ -57,8 +57,8 @@ test('审计：私聊 prompt 里裸行会被抓；加徽标后 PASS；缺 speake
   assert.equal(missing.missingSpeaker, 1);
 });
 
-test('软提醒文案：明确“群里的话≠老大说的”', () => {
+test('软提醒文案：明确“群里的话≠管理员说的”', () => {
   assert.match(SOURCE_HINT, /群里的话是群友说的/);
-  assert.match(SOURCE_HINT, /不等于老大说的/);
+  assert.match(SOURCE_HINT, /不等于管理员说的/);
   assert.match(SOURCE_HINT, /引用前先看说话人/);
 });

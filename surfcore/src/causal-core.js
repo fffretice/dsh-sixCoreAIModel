@@ -104,7 +104,7 @@ export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return base;
   const pending = Array.isArray(raw.pending) ? raw.pending.filter((x) => x && x.key && Number(x.at)) : [];
   const log = Array.isArray(raw.log) ? raw.log.filter((x) => x && x.key && Number(x.at)) : [];
-  // 2026-11-04：场合失误（把只该私下说的话发进群、被老大点出来）。
+  // 2026-11-04：场合失误（把只该私下说的话发进群、被管理员点出来）。
   const sceneMisses = Array.isArray(raw.sceneMisses)
     ? raw.sceneMisses.filter((x) => x && Number(x.at) && String(x.mine || '').trim()).slice(-20)
     : [];
@@ -285,7 +285,7 @@ export function noteSpoke(state, { key, at = Date.now(), text = '', echo = false
         lens: compact.length,
         isQ: /[？?]/.test(t),
         isList: /^[-•·\d]|、|；/.test(t.trim()) || t.split('\n').filter(Boolean).length >= 3,
-        // 2026-11-02：老大说「不止句长，还有说话方式」。这里加几个能自动判、又确实像人的：
+        // 2026-11-02：管理员说「不止句长，还有说话方式」。这里加几个能自动判、又确实像人的：
         // 语气词（口语感）、笑/草（网络感）、反应式开场（唔/诶/哦）、引用（对话感）。
         hasParticle: /[啊吧呢嘛呀哦啦呗捏]/.test(compact),
         hasLaugh: /草|哈哈|笑死|绷|乐|6\b/.test(compact),
@@ -368,7 +368,7 @@ function sharedBigrams(a, b) {
 
 /**
  * 这条消息是不是在「接她」（2026-11-04）。
- * 老大：「群里只要有人说话就算接住，不代表接的是她。」
+ * 管理员：「群里只要有人说话就算接住，不代表接的是她。」
  * 判定不靠语义理解，只看四个客观信号：引用她 / 点名她 / 和她刚才那句有字面重叠 / 短时间内出现「你」。
  */
 export function looksLikeReplyTo(pending, { text = '', quoteTargetIsSelf = false, direct = false, at = Date.now() } = {}) {
@@ -497,12 +497,12 @@ export function promptLine(state, { isPrivate = false, at = Date.now(), opts = {
 /**
  * 「你说话的样子」——把风格统计接进因果核心（2026-11-02）。
  *
- * 老大问「群友的说话模式能不能学进去」。原来的 style-core 只比「谁长谁短」，
+ * 管理员问「群友的说话模式能不能学进去」。原来的 style-core 只比「谁长谁短」，
  * 没有结果反馈；这里改成**按结果**：短句/长句/问句这几种说法，哪一种更容易被人接。
  *
  * 和 promptLine 的区别：promptLine 每天一句、说的是「某次行动」；
  * 这个是**统计口径**：每天最多一次，样本不到 8 次不说——宁可不说，也别拿噪声指导她。
- * （原来写的是三天，老大说太慢：她一天说 40 多句，一天就够攒样本了。）
+ * （原来写的是三天，管理员说太慢：她一天说 40 多句，一天就够攒样本了。）
  */
 export function styleStatLine(state, { at = Date.now(), minN = 8, cooldownMs = 24 * 3600 * 1000, opts = {} } = {}) {
   const st = normalizeState(state);
@@ -613,9 +613,9 @@ export function predictionLine(state, { at = Date.now(), minN = 8, cooldownMs = 
 }
 
 /**
- * 场合失误：她说了只该私下讲的话，被老大当场点出来（2026-11-04）。
+ * 场合失误：她说了只该私下讲的话，被管理员当场点出来（2026-11-04）。
  *
- * 老大原话：「如果能让她用因果核心进行后果预判，比什么规则都好。」
+ * 管理员原话：「如果能让她用因果核心进行后果预判，比什么规则都好。」
  * 所以这里不写规则，只记「说过什么 → 他回了什么」这一对事实，
  * 在下次开口前把具体的上一次递回给她——让她自己推后果。
  */
@@ -623,7 +623,7 @@ export function noteSceneMiss(state, { key = '', at = Date.now(), mine = '', his
   const st = normalizeState(state);
   const mineText = String(mine || '').trim().slice(0, 160);
   if (!mineText) return { state: st, added: false };
-  // 同一条消息别重复记（老大可能连发两句）
+  // 同一条消息别重复记（管理员可能连发两句）
   if (st.sceneMisses.some((m) => m.mine === mineText && Math.abs(Number(m.at) - at) < 10 * 60 * 1000)) {
     return { state: st, added: false };
   }
@@ -665,7 +665,7 @@ export function sceneLine(state, { at = Date.now(), maxAgeDays = 14, cooldownMs 
 /**
  * 「别人让你做事之后」（2026-11-04）。
  *
- * 老大：「能不能让她多用因果核心来判断。」所以把她自己攒的那点经验递回去：
+ * 管理员：「能不能让她多用因果核心来判断。」所以把她自己攒的那点经验递回去：
  * 拒绝过几次、拒绝之后对方还接着说的比例——不是评分，是她自己看。
  * bySource 里的 `request:refuse` / `request:accept` 由桥接在她回话时记。
  */
@@ -690,7 +690,7 @@ export function requestLine(state, { at = Date.now(), minN = 5, cooldownMs = 24 
 
 /**
  * 「你逗某个人的时候，她接不接」（2026-11-04）。
- * 老大想让群友A那边的互动也走因果：怎么损、损完什么反应，让她自己攒。
+ * 管理员想让群友A那边的互动也走因果：怎么损、损完什么反应，让她自己攒。
  * bySource 里的 `tease:<名字>` 由桥接在她回话时记。
  */
 export function teaseLine(state, { name = '', at = Date.now(), minN = 4, cooldownMs = 12 * 3600 * 1000 } = {}) {

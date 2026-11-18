@@ -32,18 +32,18 @@ test('B3：重建会累积旧事实（热卡里没有的旧行不丢）+ 去重'
     '# 头像',
     '',
     '- 2026-10-20 很旧的换头像记忆，卡里已经淘汰了',
-    '- 2026-11-09 那天晚上老大怂恿我换头像',
+    '- 2026-11-09 那天晚上管理员怂恿我换头像',
     '',
   ].join('\n'), 'utf8');
   const card = createEmptyCard(NOW);
-  record(card, { text: '那天晚上老大怂恿我换头像', key: 'private:2', importance: 90 });
+  record(card, { text: '那天晚上管理员怂恿我换头像', key: 'private:2', importance: 90 });
   record(card, { text: '后来头像换成蓝发那张了', key: 'group:1', createdAt: NOW - 60000 });
-  record(card, { text: '头像那张是老大挑的', key: 'group:1', createdAt: NOW - 120000 });
+  record(card, { text: '头像那张是管理员挑的', key: 'group:1', createdAt: NOW - 120000 });
   refreshInitialState(card);
   const audit = rebuildTopics(card, dir, NOW);
   const body = fs.readFileSync(path.join(dir, 'topics', '头像.md'), 'utf8');
   assert.match(body, /很旧的换头像记忆/, '旧事实应被累积保留');
-  assert.equal(body.split('那天晚上老大怂恿我换头像').length - 1, 1, '同一天同文去重后只出现一次');
+  assert.equal(body.split('那天晚上管理员怂恿我换头像').length - 1, 1, '同一天同文去重后只出现一次');
   assert.ok(audit.factsAdded >= 2);
   assert.ok(typeof audit.indexChars === 'number' && audit.indexChars <= 1080);
 });

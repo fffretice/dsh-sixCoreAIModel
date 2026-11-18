@@ -5,7 +5,103 @@ and how to re-verify.
 
 ---
 
-## 0. Version 1.3.0 (2026-11-13)
+## 0. Version 1.4.0 (2026-11-18)
+
+**yourDaughter 1.4.0 — she checks the sentence before she says it.**
+
+### A check before speaking
+
+`sendMessagesV2` now runs every group message through a local `fishtalk` checker before it leaves the
+bridge. The tool is external and **not bundled**: it is a read-only, zero-dependency Node CLI
+(`npm i -g github:Nozzi2455/fishtalk`) that answers four questions — is this a stock fish-bot phrase
+("这条我认", "我记下了"), is it AI-speak ("不是 A 而是 B", "本质上"), is it at least 60 % identical to
+something she has said before, and is it copied verbatim from the corpus (6–10 consecutive
+characters). A hard hit throws, so she has to rewrite; soft notes only go to the log.
+
+Three details make it safe to run on every send:
+
+- **Only `group:` conversations are checked.** Private chat is one-to-one and never blocked, matching
+  the existing voice-trim and repeat gates.
+- **Same sentence, 60-second exemption.** A blocked `(conversation, text)` pair is remembered; the
+  second attempt within a minute goes through untouched. Two rewrites and the message is sent — a
+  false positive can delay a sentence but never silence her.
+- **The binary is resolved once at startup.** Config override (`socialV2.fishtalk.command`) → the
+  directory of the running `node` → `/opt/homebrew/bin` → `/usr/local/bin` → `~/.npm-global/bin` →
+  `/usr/bin` → `which`/`where`. Nothing found means the feature reports `skip` and nothing changes.
+  The check is awaited, but a synchronous placeholder is taken on the send chain first, so an async
+  check can never let a later sticker or voice message overtake the text that preceded it.
+
+### From blocked hits to a language hint
+
+`state/fishtalk-stats.json` records `total` / `blocked` / per-problem counters and the last 200 blocked
+sentences. `fishtalkStatsLine()` turns it into at most one short line a day: once there are at least
+three blocks in seven days, she is told the top three problems **and what the concrete rewrite is**
+("say it plainly", "say it your own way") — phrased as a style hint inside the language module, never
+written into the memory card.
+
+### Voice turns that stay out of QQ
+
+When the voice lab starts a spoken turn it sets a `voice-active` marker (60 s). While it is live:
+
+- every QQ send path refuses with a readable error (text, voice, and the operator endpoints);
+- a DSH turn started under the marker is flagged, so its end does not fall into the "no action" QQ
+  fallback and its reply is not replayed to QQ;
+- `GET /api/socialV2/voice-context` hands the voice pipeline the same language-module line, causal
+  line and mood snapshot the QQ prompt gets, plus `GET /api/socialV2/session-id` for session reuse.
+
+Speech also gets a conversation-level emotion lock: the same conversation keeps one emotion for 15
+minutes, and sentences of ≤12 characters are not tagged "happy" (the tag over-amplified short lines
+and consecutive sentences jumped between tones). Voice messages finally carry a `time` field, so they
+no longer display as 08:00:00.
+
+### Memory recall, two tiers
+
+Recall used to require a "remember / last time / you said" keyword before it ran at all. It now runs
+on every turn: the hot card is searched first, and when fewer than four hits come back, the full
+archive is searched as well and merged in. The archive is read once and cached by file mtime. Keyword
+matching dropped from ≥3 characters to ≥2 — Chinese keywords are mostly two characters, so the old
+rule silently matched nothing. Empty result still means "inject nothing", so the change costs nothing
+in the common case.
+
+### Smaller fixes
+
+- Thought TTL unified: 7 days for actionable items, 3 days otherwise (was 14 / 7); room goals 30 → 7
+  days, because a two-week-old goal kept resurfacing.
+- `speakerLine()` — the "the speaker is connected, you can just talk" choice — now appears in private
+  chat only.
+- Image descriptions may use the last 10 messages around the image as labels (comments before and
+  after a picture are the best caption available), and later comments are no longer cut off.
+- Rule decay no longer demotes a rule by character overlap. Candidates are written to
+  `state/rules-decay-candidates.json` for a human/sub-agent to judge.
+- The "Bilibili recommendations you already made" block is no longer injected every turn (it became
+  an impression); the stale "you changed your name today" line is gone; the "things you have already
+  told each other" block shows 4 lines instead of 8.
+- A rollback note on `isOwner: true` for batched teaching is restored as a comment, so the next
+  reader does not "fix" a flag that is deliberately true.
+
+### Under the hood
+
+109 files, **+1,259 / −526**. There is one main code cut (`bridge.js`), matching updates in `memory-card.js` (section budgets),
+`nightly-audit.mjs` (doc-path filter) and `config.example.json` (the new `fishtalk` block); everything
+else in the diff is the re-sanitisation pass described below. Four review passes on the fishtalk work (hard-coded path, ordering,
+regression) landed as P0 fixes inside this cut.
+
+### What's next
+
+Teaching the checker more of her own dialect rather than more generic AI-speak rules; and moving the
+remaining shadow mechanisms (rest replay, handoff, conflict ledger) into the live path.
+
+### Sanitisation for 1.4.0
+
+Every personal identifier was stripped again: character names and nicknames, QQ numbers, group
+numbers, the LAN host, and the private assistant channel added upstream are all out of this cut. This time the
+pass is stricter than 1.3.0 — the audit's Chinese-identifier greps (`release-audit.mjs` only looks at
+paths, credentials and numeric ids) are covered by a separate full-repo grep that must return zero.
+`scripts/release-audit.mjs` reports **0 high-severity findings**. See §1 below for how to verify.
+
+---
+
+## 0.0 Version 1.3.0 (2026-11-13)
 
 **yourDaughter 1.3.0 — she remembers who said it, and knows when not to speak.**
 

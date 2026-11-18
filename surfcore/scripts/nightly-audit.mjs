@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 夜间全量体检（2026-11-02 老大要求，每天 04:10）
+ * 夜间全量体检（2026-11-02 管理员要求，每天 04:10）
  *
  * 目的：把「开发了但没在正常工作 / 跑歪了 / 触发不了」的功能每天翻一遍，
  *       按优先级列出来，**只记录不修改**。
@@ -17,6 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { rebuildRulesMeta } from './rebuild-rules-meta.mjs';
+// 2026-11-09：文档路径体检过滤——接口/正则/模板/历史或计划路径不算「失效」。
+import { shouldCheckDocPath } from '../src/doc-path-check.js';
 
 const HOME = os.homedir();
 const SURF = path.join(HOME, 'SurfCore');
@@ -263,7 +265,7 @@ function checkLearnLedger() {
       const onlyMeta = metaRules.filter((t) => !fileSet.has(norm(t)));
       if (onlyMeta.length > 2) {
         // 2026-11-04：以前只报不修。meta 里留着文件已经没有的句子时，
-        // 会出现「索引以为这条规矩在生效、她其实根本没看到」（「只属于你和老大的话」就是这么丢的）。
+        // 会出现「索引以为这条规矩在生效、她其实根本没看到」（「只属于你和管理员的话」就是这么丢的）。
         // 方向固定为 文件 → meta：文件是权威，反向补回去会把清理掉的旧句子捡回来。
         let healed = '';
         try {
@@ -337,6 +339,9 @@ function checkDocs() {
     for (const m of text.matchAll(/`([~/][^`\n]{6,80})`/g)) {
       let p = m[1].replace(/^~/, HOME).replace(/[:：].*$/, '').trim();
       if (/[*?{}<>$]/.test(p) || /\s/.test(p)) continue;
+      // 2026-11-09（P2 旧路径 19→0）：只查真正的文件系统路径；接口/命令/正则/模板/示例
+      // 以及历史/计划/运行时按需文件跳过（判据在 src/doc-path-check.js，带单测）。
+      if (!shouldCheckDocPath(m[1])) continue;
       if (/^\/(api|dsh-surfcore)\//.test(p)) continue;   // 那是接口不是文件
       if (!exists(p)) {
         // state/ 下的相对路径也要试一次

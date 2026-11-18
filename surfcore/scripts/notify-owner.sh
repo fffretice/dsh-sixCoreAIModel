@@ -1,12 +1,12 @@
 #!/bin/bash
-# 给老大推 QQ 私聊（文字 / 图片）。用法：
+# 给管理员推 QQ 私聊（文字 / 图片）。用法：
 #   notify-owner.sh "文字内容"
 #   notify-owner.sh "文字内容" /path/to/image.png
 #
 # 失败时不丢消息：写进 state/assistant-outbox.jsonl，下一轮自检可以重试。
 set -uo pipefail
 MSG="$1"
-# 助手发给老大的话，一律带【助手】前缀（老大 2026-10-29 定的规矩）
+# 助手发给管理员的话，一律带【助手】前缀（管理员 2026-10-29 定的规矩）
 case "$MSG" in
   【助手】*|[助手]*) ;;
   *) MSG="【助手】$MSG" ;;

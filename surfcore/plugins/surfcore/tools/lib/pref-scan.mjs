@@ -446,7 +446,7 @@ async function collectAccountSources({ role, headers, account, wanted, inputs, r
  * 扫一遍候选关键词。任何一个源失败都不影响其他源；没有 cookie 时只用本地记录。
  *
  * target:
- *   fish  = 当前配置的小招牌词账号（默认，兼容旧调用）
+ *   fish  = 当前配置的角色账号（默认，兼容旧调用）
  *   owner = 主人账号（config.owner.mid；需要先扫码登录，cookie 存在 owner-credentials.json）
  *   both  = 两边都抓，来源前缀区分
  *
@@ -476,7 +476,7 @@ export async function scanPreferences({ sources = ['history', 'favorites', 'loca
         ok: false,
         error: role === 'owner'
           ? '还没有扫码登录主人的 B站 账号（点「一键抓取」会弹二维码）'
-          : '还没有绑定小招牌词的 B站 账号（可以在设置页扫码）',
+          : '还没有绑定角色的 B站 账号（可以在设置页扫码）',
       });
       continue;
     }
@@ -495,7 +495,7 @@ export async function scanPreferences({ sources = ['history', 'favorites', 'loca
       reports.push({
         name: `${role}-account`,
         ok: false,
-        error: `这个 cookie 属于 ${resolved.name || resolved.mid}（${resolved.mid}），不是配置里的${role === 'owner' ? '主人' : '小招牌词'}（${expectedMid}）`,
+        error: `这个 cookie 属于 ${resolved.name || resolved.mid}（${resolved.mid}），不是配置里的${role === 'owner' ? '主人' : '角色'}（${expectedMid}）`,
       });
       continue;
     }

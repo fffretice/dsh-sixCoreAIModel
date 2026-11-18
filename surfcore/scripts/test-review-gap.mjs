@@ -21,8 +21,8 @@ const NOW = new Date('2026-11-08T21:40:00+08:00').getTime();
 const DAY = 24 * 3600e3;
 
 console.log('—— extractReviewTarget ——');
-ok('11/6 原句「棉宝我教过你的复读文化你还记得不」→ 复读文化', () => {
-  const hit = extractReviewTarget('棉宝我教过你的复读文化你还记得不');
+ok('11/6 原句「角色我教过你的复读文化你还记得不」→ 复读文化', () => {
+  const hit = extractReviewTarget('角色我教过你的复读文化你还记得不');
   assert(hit, '应命中'); eq(hit.target, '复读文化');
 });
 ok('「你还记得我教过你的复读文化吗」→ 复读文化', () => {
@@ -58,7 +58,7 @@ ok('哪里都没有 → known=false', () => {
 
 console.log('—— shouldRecordReview ——');
 const sourcesNone = {};
-const base = { target: '复读文化', phrase: '棉宝我教过你的复读文化你还记得不', sources: sourcesNone, items: [], now: NOW };
+const base = { target: '复读文化', phrase: '角色我教过你的复读文化你还记得不', sources: sourcesNone, items: [], now: NOW };
 ok('基础：复习对象不存在、无历史 → ok，条目 kind=review', () => {
   const d = shouldRecordReview(base);
   eq(d.ok, true); eq(d.reason, 'ok');

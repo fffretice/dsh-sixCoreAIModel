@@ -1,7 +1,7 @@
 /**
  * 每日记忆整理（dreaming 第一遍）——具体事件笔记 v2（2026-11-08，task-12）
  *
- * 背景（老大 11-08 傍晚反馈 + memory-upgrade.md P1）：
+ * 背景（管理员 11-08 傍晚反馈 + memory-upgrade.md P1）：
  *   旧的整理只写「私聊里聊到…；一共 58 句，你自己说了 76 句」这种**统计句**：
  *   · 没有信息量，却占掉注入预算（「永远不会忘的」5/5 行都是它）；
  *   · 混着私聊和群聊内容，群聊记忆卡里也会出现私聊摘要 → 她在群里说「上午还在等11/16」；
@@ -155,7 +155,7 @@ export function buildDailyDigestItems({
     // ① 主人/管理员说的话（按信息量挑，最多 2 句；「确实」「挺好的」这种会被过滤）
     const ownerPicks = pickTopQuotes(sorted.filter((r) => !r.isSelf && r.isOwner === true), 2);
     const ownerQuotes = ownerPicks.map((x) => x.quote);
-    for (const quote of ownerQuotes) parts.push(`老大说「${quote}」`);
+    for (const quote of ownerQuotes) parts.push(`管理员说「${quote}」`);
 
     // ② 值得记的群友发言：约定 / 情绪 / 矛盾（最多 2 句，去重）
     const notablePicks = pickTopQuotes(sorted

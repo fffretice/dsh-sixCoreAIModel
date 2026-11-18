@@ -98,44 +98,44 @@ try {
         qq: { id: '10001', name: '阿零', groups: ['100000004'] },
         bili: { id: '87654321', name: '零酱' },
       },
-      label: '小零',
+      label: '群友D',
       source: 'manual',
       confidence: 1,
       verified: true,
     },
   });
   assert.equal(added.status, 200);
-  assert.equal(added.data.link.label, '小零', 'add 的返回必须带称呼');
+  assert.equal(added.data.link.label, '群友D', 'add 的返回必须带称呼');
 
   const list = await invoke('GET', '/align');
   assert.equal(list.data.links.length, 1);
-  assert.equal(list.data.links[0].label, '小零', '/align 列表必须带称呼');
+  assert.equal(list.data.links[0].label, '群友D', '/align 列表必须带称呼');
   assert.equal(list.data.stats.labels, 1, '统计里要有已设称呼数量');
 
   const stored = readJson(path.join(tempState, 'alignments.json'));
-  assert.equal(stored.links[0].label, '小零', '称呼必须落进 alignments.json');
+  assert.equal(stored.links[0].label, '群友D', '称呼必须落进 alignments.json');
 
   // 2) QQ 侧简报：带称呼、带 QQ 号（按 ID 对上），并明确“只叫这个”。
   const qqBrief = readFile(QQ_ALIGNMENT_BRIEF);
-  assert.ok(qqBrief.includes('小零'), 'QQ 简报必须带称呼');
-  assert.ok(qqBrief.includes('以后只叫 TA「小零」'), 'QQ 简报必须写明只用称呼');
+  assert.ok(qqBrief.includes('群友D'), 'QQ 简报必须带称呼');
+  assert.ok(qqBrief.includes('以后只叫 TA「群友D」'), 'QQ 简报必须写明只用称呼');
   assert.ok(qqBrief.includes('10001'), '有称呼时 QQ 简报要带 QQ 号，别靠会变的群昵称');
   assert.ok(qqBrief.includes('优先于人格卡'), '称呼规则要高于人格卡称呼表');
   assert.ok(qqBrief.includes('绝对不要念出来'), '带号码时必须重申不要念号码');
 
   // 3) B站 侧简报：带称呼，但不出现 QQ 号。
   const biliBrief = readFile(BILI_ALIGNMENT_FILE);
-  assert.ok(biliBrief.includes('小零'), 'B站 简报必须带称呼');
-  assert.ok(biliBrief.includes('以后只叫 TA「小零」'));
+  assert.ok(biliBrief.includes('群友D'), 'B站 简报必须带称呼');
+  assert.ok(biliBrief.includes('以后只叫 TA「群友D」'));
   assert.ok(!biliBrief.includes('10001'), 'B站 简报不能出现 QQ 号');
 
   // 4) 表格里改称呼：update 只改 label，身份不动，简报立刻重建。
-  const updated = await invoke('POST', '/align', { action: 'update', id: added.data.link.id, link: { label: '小零酱' } });
+  const updated = await invoke('POST', '/align', { action: 'update', id: added.data.link.id, link: { label: '群友D酱' } });
   assert.equal(updated.status, 200);
-  assert.equal(updated.data.link.label, '小零酱');
+  assert.equal(updated.data.link.label, '群友D酱');
   assert.equal(updated.data.link.identities.qq.id, '10001', '改称呼不能改掉身份');
-  assert.ok(readFile(QQ_ALIGNMENT_BRIEF).includes('小零酱'), '改称呼后 QQ 简报要重建');
-  assert.ok(!readFile(BILI_ALIGNMENT_FILE).includes('以后只叫 TA「小零」'), '旧称呼不能残留在 B站 简报');
+  assert.ok(readFile(QQ_ALIGNMENT_BRIEF).includes('群友D酱'), '改称呼后 QQ 简报要重建');
+  assert.ok(!readFile(BILI_ALIGNMENT_FILE).includes('以后只叫 TA「群友D」'), '旧称呼不能残留在 B站 简报');
 
   // 5) 清掉称呼：回到旧格式，不再注入“只叫这个”规则。
   const cleared = await invoke('POST', '/align', { action: 'update', id: added.data.link.id, link: { label: '' } });

@@ -2,7 +2,7 @@
 // 只读公开代理域，不把聊天内容发出去，只发 URL 本身。
 // 背景：本机到 publish.twitter.com / syndication.twimg.com 超时（oEmbed 不可用），
 //   api.fxtwitter.com / api.vxtwitter.com 可用（实测 0.74~1.0s 返回 text/author）。
-// 隐私：默认 ownerOnly=true（前 3 天只处理老大发的链接），enabled=false 可一键关。
+// 隐私：默认 ownerOnly=true（前 3 天只处理管理员发的链接），enabled=false 可一键关。
 
 import fs from 'node:fs';
 import path from 'node:path';

@@ -21,7 +21,7 @@ ok('「啵啵」→ tease', () => eq(D('啵啵').kind, 'tease'));
 ok('「今天天气不错」→ none', () => eq(D('今天天气不错').kind, 'none'));
 ok('媒体占位 → none', () => eq(D('[图片]').kind, 'none'));
 ok('owner 私聊请求：role=owner，拒绝余地低-中', () => {
-  const r = D('等会帮我把图发群里', { isOwner: true, conversationKey: 'private:1', sender: '老大' });
+  const r = D('等会帮我把图发群里', { isOwner: true, conversationKey: 'private:1', sender: '管理员' });
   eq(r.kind, 'do'); eq(r.requesterRole, 'owner'); eq(r.refusalRoom, '低-中');
 });
 ok('群里没点她的陈述不误判 do（无信号→none）', () => eq(D('他昨天去钓鱼了', { isDirect: false }).kind, 'none'));

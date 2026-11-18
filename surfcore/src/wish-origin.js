@@ -1,5 +1,5 @@
 // 2026-11-09（P1 安全/上下文）：pendingThoughts 的来源标记与注入过滤。
-// 背景：wishLines 默认把 [当前会话, ownerKey] 的念想合并；ownerKey 是老大私聊，
+// 背景：wishLines 默认把 [当前会话, ownerKey] 的念想合并；ownerKey 是管理员私聊，
 // 导致群聊 prompt 里出现私聊念想原文（今天 44 条群 prompt 有 32 条命中）。
 // 这里只做「来源标记/是否保留/渲染标签/排序」的纯函数，wishLines 负责遍历与状态读取。
 // B 开关（socialV2.wish.includePrivateInGroup，默认 false）开启时保留私聊念想但标注+降权。

@@ -732,7 +732,7 @@ export function createBiliMemory({ stateDir, home = os.homedir(), log = () => {}
     const lower = q.toLowerCase();
     const bv = extractBv(q);
     const tokens = tokenize(q);
-    const trigger = /B站|b站|bilibili|视频|招牌词|鲸鱼|养鱼|动态|评论|弹幕|up主|BV|投稿|收藏|刷到|看过|记得|日记|账号/.test(q)
+    const trigger = /B站|b站|bilibili|视频|招牌词|招牌词|养鱼|动态|评论|弹幕|up主|BV|投稿|收藏|刷到|看过|记得|日记|账号/.test(q)
       || tokens.length > 0;
     if (!trigger) return '';
     const scored = [];

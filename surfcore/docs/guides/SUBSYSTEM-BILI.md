@@ -41,7 +41,7 @@
 
 | 角色 | 是谁 | 存在哪 | 能干什么 | 不能干什么 |
 | --- | --- | --- | --- | --- |
-| **鱼 / 小招牌词** | 她自己的 B站 小号（"公开面"的那个） | `~/.dsh/surfcore/bili/credentials.json`（`lib/paths.js:61`） | 看视频、评论、回复、弹幕、发动态、转发卡片、私信主人、点赞 | —— |
+| **鱼 / 角色** | 她自己的 B站 小号（"公开面"的那个） | `~/.dsh/surfcore/bili/credentials.json`（`lib/paths.js:61`） | 看视频、评论、回复、弹幕、发动态、转发卡片、私信主人、点赞 | —— |
 | **主人 / owner** | 使用者本人 | `~/.dsh/surfcore/bili/owner-credentials.json`（`lib/paths.js:62-64`） | **只给"一键抓取偏好"做只读扫描**（`tools/lib/pref-scan.mjs:242`、`:450-452`） | **不拿主人号发评论/动态/私信**（`lib/bili-qr-login.mjs:9-13`） |
 
 `owner` 的另一个用途是**身份**而不是**通道**：`bili.config.json` 的 `owner.mid` / `owner.name` 决定
@@ -80,7 +80,7 @@
 所以做法是：起一个 **headless Edge** → CDP 打开 `https://passport.bilibili.com/login` → 把二维码图取出来给设置页 →
 轮询 cookie，扫码确认后写盘（`lib/bili-qr-login.mjs:1-30`）。
 
-- 端点：设置页 →「扫码登录小招牌词」/「口味权重 · 一键抓取 · 抓取主人」→ 宿主接口 `/bili/qr/start` + `/bili/qr/poll`
+- 端点：设置页 →「扫码登录角色」/「口味权重 · 一键抓取 · 抓取主人」→ 宿主接口 `/bili/qr/start` + `/bili/qr/poll`
   （`lib/client.js:2114-2212`、`plugins/surfcore/scripts/test-client-contract.mjs:302-306`）。
 - **不填账号密码、不点登录按钮**；只打开官方页（`lib/bili-qr-login.mjs:9-13`）。
 - **归属校验是硬闸**（`lib/bili-qr-login.mjs:271-295`）：

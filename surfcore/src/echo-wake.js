@@ -6,7 +6,7 @@
  *
  * 这里把判定抽成纯函数（不依赖 bridge 闭包），便于单测：
  *   · detectEchoBurst：最近窗口内同一短句被多人刷 → 返回 {text,count,senders}
- *   · isEchoQuietHour：22:30–08:00 不叫醒（老大定的，夜里被刷梗叫醒不值）
+ *   · isEchoQuietHour：22:30–08:00 不叫醒（管理员定的，夜里被刷梗叫醒不值）
  *   · shouldEchoWake：综合「睡着 / 夜间 / 概率 / 节流 / 日上限」给一次性决定
  *
  * 设计边界（PM 2026-11-08 批准）：

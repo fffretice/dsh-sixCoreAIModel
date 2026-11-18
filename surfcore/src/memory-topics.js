@@ -14,7 +14,7 @@ import path from 'node:path';
 // 私聊样本只在私聊视图的 _index.md 里。来源判断复用 memory-card 的 originKindOf。
 import { canEnterGroupView, originKindOf } from './memory-card.js';
 
-// 核心主题：老大定的那几个（B 方案）。keywords 越靠前权重越高。
+// 核心主题：管理员定的那几个（B 方案）。keywords 越靠前权重越高。
 export const CORE_TOPICS = [
   { name: '群友A', keywords: ['群友A'] },
   { name: '头像', keywords: ['头像', 'qlogo', '自拍'] },

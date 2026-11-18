@@ -36,18 +36,18 @@ export const CONFLICT_TOPICS = Object.freeze([
   {
     key: 'group_intel_forward',
     label: '往群里发情报',
-    patterns: [/新情报/, /转发/, /(新图|联动|情报).*(发|往|转|群)/, /(发|转|问).*(情报)/, /kuri群|小兴群/],
+    patterns: [/新情报/, /转发/, /(新图|联动|情报).*(发|往|转|群)/, /(发|转|问).*(情报)/, /群友B群|群友C群/],
   },
   {
     key: 'address_name',
     label: '称呼/名字',
-    patterns: [/称呼/, /叫我/, /叫老大/, /叫主人/, /名字.*(改|换|叫)/],
+    patterns: [/称呼/, /叫我/, /叫管理员/, /叫主人/, /名字.*(改|换|叫)/],
   },
 ]);
 
 // 口径极性
 const ALLOW_RE = /(可以|能|行|允许|配一句|说一句|写点观后感|发吧|带一个来源链接|像正常人一样)/;
-const FORBID_RE = /(别|不要|不准|不能|不许|只私聊|只聊天|一句话别说|别提|别发|别讲|只发老大的群)/;
+const FORBID_RE = /(别|不要|不准|不能|不许|只私聊|只聊天|一句话别说|别提|别发|别讲|只发管理员的群)/;
 
 export function classifyTopic(text) {
   const body = String(text || '');
@@ -62,7 +62,7 @@ export function topicLabel(key) {
 }
 
 /**
- * 极性判定：restrict = 部分允许但加条件（只发老大群/只私聊/发群不配话）；
+ * 极性判定：restrict = 部分允许但加条件（只发管理员群/只私聊/发群不配话）；
  * forbid = 整体禁止/别提；allow = 允许。
  */
 export function classifyStance(text) {
@@ -83,10 +83,10 @@ const QUESTION_RE = /(吗|呢|不|？|\?)\s*$/;
 
 function dayOf(iso) { return String(iso || '').slice(0, 10); }
 
-/** 来源标注（符合记忆来源规则）：owner/规则 = 老大改的；manual/digest = 她自己记/改的。 */
+/** 来源标注（符合记忆来源规则）：owner/规则 = 管理员改的；manual/digest = 她自己记/改的。 */
 export function sourceLabel(source) {
   const s = String(source || '');
-  if (s === 'rule' || s === 'qq-owner') return '老大';
+  if (s === 'rule' || s === 'qq-owner') return '管理员';
   if (s === 'manual' || s === 'digest' || s === 'qq-self') return '你';
   return '记录';
 }

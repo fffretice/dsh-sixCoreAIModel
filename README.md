@@ -10,9 +10,39 @@ This is not another "LLM wired to a chat app" framework. It gives the model an i
 a memory that forgets, a circadian rhythm, and two hands (QQ + Bilibili) — and it makes
 all of those things **interact**, so behaviour changes with state instead of being executed.
 
-Current release: **1.3.0**.
+Current release: **1.4.0**.
 
-## What's new in 1.3
+## What's new in 1.4
+
+- **She checks the sentence before she sends it.** Every group message now goes through a local
+  `fishtalk` checker first (read-only, pure statistics, zero-dependency Node CLI, not bundled): stock
+  fish-bot phrasing, AI-speak ("not A but B", "essentially"), ≥60 % overlap with something she has
+  said before, and verbatim corpus lines. A hard block throws so she rewrites; soft notes only reach
+  the log. The same sentence is exempt for 60 seconds — two rewrites and it goes out, so a false
+  positive can't leave her speechless. Group chats only, and the binary is resolved once at startup
+  (config override → node's directory → Homebrew → npm global → `which`); not installed means the
+  check is silently skipped. Send ordering is preserved: the queue slot is taken synchronously before
+  the async check, so text, stickers and voice cannot be reordered.
+- **Blocked hits feed the language module.** `state/fishtalk-stats.json` keeps totals and the last 200
+  blocked lines; once there are ≥3 in seven days, one line a day tells her the top 3 problems *and how
+  real people in the group put it* — a style hint, not a memory record.
+- **Voice turns don't leak into QQ.** A `voice-active` marker set by the voice lab makes every QQ send
+  path refuse, and a turn started under it is flagged so its end skips the QQ no-action fallback.
+  Voice conversations get the language module, causal core and mood snapshot too, plus a
+  per-conversation 15-minute emotion lock and a no-"happy" rule for very short lines — consecutive
+  sentences stop jumping between tones.
+- **Memory recall, two tiers.** The hot card is searched first; when fewer than 4 hits come back the
+  full archive is searched as well (cached by mtime). Two-character Chinese keywords now match (the old
+  ≥3 rule meant most Chinese keywords never did), and the "do you remember" keyword gate is gone —
+  recall runs every turn and costs nothing when it finds nothing.
+- **Smaller things.** Thought TTL unified at 7 days (actionable) / 3 days (idle); room goals 30 → 7
+  days; the speaker line appears in private chat only; the last 10 messages around an image are passed
+  to her as the image's labels; rule decay writes candidates to `state/rules-decay-candidates.json`
+  instead of demoting rules by character overlap; the "already recommended" Bilibili list is no longer
+  injected every turn; voice messages carry a timestamp; the "things you have already told each
+  other" block shows 4 lines instead of 8.
+
+### Highlights in 1.3
 
 - **Memory that knows whose memory it is.** Group-sourced records are stamped with group + speaker
   before they enter her private context; records whose speaker is unknown are dropped. The prompt

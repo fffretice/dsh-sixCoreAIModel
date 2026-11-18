@@ -9,12 +9,12 @@ import {
 const rec = (id, source, day, text) => ({ id, source, createdAt: `${day}T12:00:00+08:00`, text });
 const FIXTURES = [
   // 1) 视频观后感：旧允许 → 新只私聊
-  rec('v-old', 'rule', '2026-10-31', '刷手办类视频先交给老大审核；其他视频自己先看，看完写点观后感（10/31）'),
+  rec('v-old', 'rule', '2026-10-31', '刷手办类视频先交给管理员审核；其他视频自己先看，看完写点观后感（10/31）'),
   rec('v-mid', 'qq-owner', '2026-11-01', '可以哦，对于剧情的观后感可以丢群里，一次一句话就好'),
-  rec('v-new', 'rule', '2026-11-02', '没人说话的时候：真闷就翻翻 B 站/热榜，或挑一张图丢群里。注意：可以丢图，但不要在群里讲视频内容或观后感（只私聊老大）'),
-  // 2) 群情报：旧允许发群 → 新只发老大群
+  rec('v-new', 'rule', '2026-11-02', '没人说话的时候：真闷就翻翻 B 站/热榜，或挑一张图丢群里。注意：可以丢图，但不要在群里讲视频内容或观后感（只私聊管理员）'),
+  // 2) 群情报：旧允许发群 → 新只发管理员群
   rec('g-old', 'qq-owner', '2026-11-03', '以后看到新的联动就把图发群里带一个来源链接'),
-  rec('g-new', 'qq-owner', '2026-11-07', '网上找到的新情报，只往我的群里发，kuri群和小兴群你就别发新情报了，那两个群里你只聊天就行了'),
+  rec('g-new', 'qq-owner', '2026-11-07', '网上找到的新情报，只往我的群里发，群友B群和群友C群你就别发新情报了，那两个群里你只聊天就行了'),
   // 3) 发图配话：旧别说 → 新可配一句
   rec('i-old', 'qq-owner', '2026-11-04', '发图的时候一句话都别说，发到各个群里'),
   rec('i-new', 'qq-owner', '2026-11-07', '发了海报你还可以像正常人一样说一句话'),
@@ -24,9 +24,9 @@ test('主题/极性分类（三组真实口径）', () => {
   assert.equal(classifyTopic('看完写点观后感'), 'video_afterthought');
   assert.equal(classifyTopic('只往我的群里发新情报'), 'group_intel_forward');
   assert.equal(classifyTopic('发图的时候一句话都别说'), 'image_caption');
-  assert.equal(classifyStance('可以丢图，但不要在群里讲视频内容或观后感（只私聊老大）'), 'restrict');
+  assert.equal(classifyStance('可以丢图，但不要在群里讲视频内容或观后感（只私聊管理员）'), 'restrict');
   assert.equal(classifyStance('以后看到新的联动就把图发群里带一个来源链接'), 'allow');
-  assert.equal(classifyStance('只往我的群里发，kuri群别发'), 'restrict');
+  assert.equal(classifyStance('只往我的群里发，群友B群别发'), 'restrict');
   assert.equal(classifyStance('发图的时候一句话都别说'), 'forbid');
   assert.equal(classifyStance('发了海报你还可以像正常人一样说一句话'), 'allow');
   assert.equal(topicLabel('video_afterthought'), '视频观后感');
@@ -74,7 +74,7 @@ test('渲染：≤2 对、≤120 字、含旧→新日期与线索措辞；私�
   assert.ok(block.length <= 120, `块应 ≤120 字，实际 ${block.length}`);
   assert.ok((block.match(/；/g) || []).length <= 1, '最多 2 对（一个分号）');
   assert.match(block, /口径变更/);
-  assert.match(block, /老大 11-/, 'owner 口径应标注「老大」');
+  assert.match(block, /管理员 11-/, 'owner 口径应标注「管理员」');
   assert.match(block, /不要急着道歉|愣一下/);
   const records = FIXTURES;
   assert.equal(conflictsForWake({ text: '群情报发哪？', convKey: 'group:860', isOwner: false, records }), '');

@@ -10,7 +10,7 @@ const NOW = Date.parse('2026-11-09T20:00:00+08:00');
 const D = 86400_000;
 const rec = (id, daysAgo, text, extra = {}) => ({
   id, created_at: undefined, createdAt: new Date(NOW - daysAgo * D).toISOString(),
-  text, importance: 70, originKind: 'private', speaker: '老大', conversationKey: 'private:1', ...extra,
+  text, importance: 70, originKind: 'private', speaker: '管理员', conversationKey: 'private:1', ...extra,
 });
 
 test('视图安全：群只允许 group/public；私聊允许 private/public/unknown', () => {
@@ -38,10 +38,10 @@ test('选条：≥7 天、中高 salience、近 3 天未被提过、不重复', 
 });
 
 test('线索渲染：人+大致时间+半句，≤120 字，不给结论/全文', () => {
-  const r = rec('r1', 10, '商品页文案要不要加一句可加急——后来真的加上了并且用了一周', { speaker: '老大' });
+  const r = rec('r1', 10, '商品页文案要不要加一句可加急——后来真的加上了并且用了一周', { speaker: '管理员' });
   const line = renderRestReplayClue(r, { convKey: 'private:1', now: NOW });
   assert.ok(line.length <= 120, `≤120，实际 ${line.length}`);
-  assert.match(line, /你和老大聊过一件事/);
+  assert.match(line, /你和管理员聊过一件事/);
   assert.match(line, /想得起后来怎样了吗/);
   assert.match(line, /不用硬编/);
   assert.ok(!line.includes('后来真的加上了并且用了一周'), '不能给结论/全文');

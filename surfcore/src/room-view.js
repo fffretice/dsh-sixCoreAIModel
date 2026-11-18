@@ -2,7 +2,7 @@
 // 浏览器截图 dataURL/base64 → 校验 PNG/≤2MB → 交给 bridge 走 deliverPromptNow 私聊 prompt+图像上下文。
 export const ROOM_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const ROOM_VIEW_MAX_BODY_BYTES = 4 * 1024 * 1024; // base64 膨胀后仍留有 JSON 余量
-export const ROOM_VIEW_DEFAULT_TEXT = '老大让你看看现在的房间……桌上给你摆了示例物件（换成你自己的场景）（爆黄那种），慢慢看，看完跟我说说像不像。';
+export const ROOM_VIEW_DEFAULT_TEXT = '管理员让你看看现在的房间……桌上给你摆了示例物件（换成你自己的场景）（爆黄那种），慢慢看，看完跟我说说像不像。';
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /**

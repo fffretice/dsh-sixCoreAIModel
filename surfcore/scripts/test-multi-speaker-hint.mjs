@@ -41,15 +41,15 @@ const now = Date.now();
 const msg = (sender, minsAgo = 1, isSelf = false) => ({ sender, isSelf, time: now - minsAgo * 60e3 });
 
 // ── 行为 ──
-const g2 = fn('group:123', [msg('群友A'), msg('老大'), msg('群友A')]);
+const g2 = fn('group:123', [msg('群友A'), msg('管理员'), msg('群友A')]);
 check('B1 群聊 2 个说话人 → 出现', g2.length > 0 && /好几个人在说话/.test(g2) && /默认带上 replyToMessageId 或称呼/.test(g2));
-const g3 = fn('group:123', [msg('群友A'), msg('老大'), msg('Tan.')]);
+const g3 = fn('group:123', [msg('群友A'), msg('管理员'), msg('Tan.')]);
 check('B2 群聊 3 个说话人 → 人数正确', /刚有 3 个人在说话/.test(g3), g3.slice(0, 40));
 const g1 = fn('group:123', [msg('群友A'), msg('群友A', 2), msg('群友A', 3)]);
 check('B3 群聊只有 1 个说话人 → 不出现', g1 === '');
-const priv = fn('private:999', [msg('老大'), msg('群友A')]);
+const priv = fn('private:999', [msg('管理员'), msg('群友A')]);
 check('B4 私聊即使多 sender → 不出现', priv === '');
-const old = fn('group:123', [msg('群友A', 25), msg('老大', 26)]);
+const old = fn('group:123', [msg('群友A', 25), msg('管理员', 26)]);
 check('B5 窗口外的旧消息 → 不出现', old === '');
 const selfOnly = fn('group:123', [msg('我', 1, true), msg('我', 2, true)]);
 check('B6 只有她自己 → 不出现', selfOnly === '');

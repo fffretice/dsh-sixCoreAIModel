@@ -90,7 +90,7 @@ def main():
 
     print(f"DSH 在跑（pid {pids[0]}）")
 
-    # 自检开关关掉时，不再按「太久没跑」告警（2026-11-06 老大停用每小时自检）
+    # 自检开关关掉时，不再按「太久没跑」告警（2026-11-06 管理员停用每小时自检）
     try:
         ctl = read_json(os.path.expanduser("~/.dsh/selfcheck.json"), {})
         if ctl.get("enabled", True) is False:

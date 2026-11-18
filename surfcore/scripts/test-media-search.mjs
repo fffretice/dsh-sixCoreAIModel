@@ -268,9 +268,9 @@ await test('mapDeepSeekResponse：去重、去 #N 锚点、引用摘要', async 
       {
         type: 'web_search_tool_result',
         content: [
-          { type: 'web_search_result', title: '鲸鱼娘', url: 'https://example.com/a#1', page_age: '2026-10-01' },
+          { type: 'web_search_result', title: '招牌词娘', url: 'https://example.com/a#1', page_age: '2026-10-01' },
           { type: 'web_search_result', title: '重复', url: 'https://example.com/a#2' },
-          { type: 'web_search_result', title: '鲸鱼娘（二）', url: 'https://example.com/b' }
+          { type: 'web_search_result', title: '招牌词娘（二）', url: 'https://example.com/b' }
         ]
       },
       { type: 'text', text: '答案', citations: [{ url: 'https://example.com/b', cited_text: '这是引用片段' }] }

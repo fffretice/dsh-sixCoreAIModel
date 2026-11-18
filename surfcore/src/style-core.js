@@ -23,7 +23,7 @@ export const STYLE_DEFAULTS = Object.freeze({
   longRatio: 2.2,     // 比群里平均长这么多倍才算「长」
   listRatio: 0.4,     // 列点比例
   dailyLimit: 1,
-  // 2026-11-04：老大觉得一天一次太稀。改成非睡眠时段（8:00 起）每 3 小时最多提醒一次。
+  // 2026-11-04：管理员觉得一天一次太稀。改成非睡眠时段（8:00 起）每 3 小时最多提醒一次。
   minIntervalMs: 3 * 60 * 60 * 1000,
   dayStartHour: 8,
 });
@@ -105,7 +105,7 @@ export function styleLine(state, { key, at = Date.now(), opts = {} } = {}) {
   const listRatio = bucket.selfN ? bucket.selfList / bucket.selfN : 0;
   const qRatio = bucket.selfN ? bucket.selfQ / bucket.selfN : 0;
 
-  // 2026-11-06 老大要求：从「给她一句结论」改成「给她事实、让她自己判断」。
+  // 2026-11-06 管理员要求：从「给她一句结论」改成「给她事实、让她自己判断」。
   // 原来是「短一点，或者只说半句」——那是命令，而且她照着背就成了另一种套路。
   // 现在只摆数据、把判断权还给她；「这种说法几次有人接」由 bridge 追加因果数据。
   const isLong = otherAvg > 6 && selfAvg > otherAvg * Number(opts.longRatio ?? STYLE_DEFAULTS.longRatio);

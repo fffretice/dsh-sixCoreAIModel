@@ -2,12 +2,12 @@
  * 记忆来源标注（task-52，2026-11-10）—— 纯函数，先离线/shadow，不改生产渲染。
  *
  * 问题：私聊 prompt 里把群来源记录平铺成普通事实，丢了 speaker/groupId，
- * 她可能把群友的话当成老大说的（LOL 案例）。
+ * 她可能把群友的话当成管理员说的（LOL 案例）。
  * 规则：私聊视图里所有群来源记录必须带 `【群<号>·<群友>】`；无 speaker 不注入；
  * 群视图不重复标注（当前群上下文已隐含来源），但跨群记录仍应标。
  */
 
-export const SOURCE_HINT = '群里的话是群友说的，不等于老大说的；引用前先看说话人。';
+export const SOURCE_HINT = '群里的话是群友说的，不等于管理员说的；引用前先看说话人。';
 export const ATTRIBUTION_VERSION = 1;
 
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();

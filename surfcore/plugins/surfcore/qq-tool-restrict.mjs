@@ -178,7 +178,7 @@ const SAFE_EXACT = new Set([
   'qq_draw_image',
   // 网页截图：服务器端 Chrome 生成 PNG 后直接发会话，模型不碰本地文件
   'qq_send_screenshot',
-  // 改自己的名字/头像：老大授权，但每次都要先问他
+  // 改自己的名字/头像：管理员授权，但每次都要先问他
   'qq_set_nickname',
   'qq_set_avatar',
   // 给助手留言（写进 assistant-inbox.jsonl，不触发任何动作）

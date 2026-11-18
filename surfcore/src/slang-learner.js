@@ -346,7 +346,7 @@ export function screenSlangWindow(messages, { known = [], minRepeat = 2 } = {}) 
     const s = String(m?.sender ?? '').trim();
     if (s) localStop.add(s);
   }
-  for (const fixed of ['AAA', '角色', '招牌词', '神秘鱼', '鲸鱼', 'DeepSeek', 'deepseek', 'dsh', 'DSH']) localStop.add(fixed);
+  for (const fixed of ['AAA', '角色', '招牌词', '神秘鱼', '招牌词', 'DeepSeek', 'deepseek', 'dsh', 'DSH']) localStop.add(fixed);
   const urlLike = /(?:https?:\/\/|www\.|b23\.tv|bilibili\.com|\b[A-Za-z0-9]+\.(?:tv|com|cn|net|org)\b)/i;
   // URL/链接先整段剔掉：Segmenter 会把 https、b23、BV 号切成「词」，它们不是黑话。
   const cleanText = (t) => String(t ?? '').replace(/https?:\/\/\S+/gi, ' ').replace(/\b(?:www\.)?[A-Za-z0-9-]+\.(?:tv|com|cn|net|org|io)\S*/gi, ' ');

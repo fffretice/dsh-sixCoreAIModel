@@ -12,12 +12,12 @@ let ok = 0; const cases = [];
 const check = (name, pass, got = '') => { cases.push({ name, pass, got }); if (pass) ok += 1; };
 
 const group = { id: 'g1', source: 'qq-group', originKind: 'group', speaker: '群友A', groupId: '1000000002', text: '今天群里聊了联动' };
-const priv = { id: 'p1', source: 'qq-owner', originKind: 'private', speaker: '老大', text: '以后别熬夜' };
+const priv = { id: 'p1', source: 'qq-owner', originKind: 'private', speaker: '管理员', text: '以后别熬夜' };
 
 const gi = annotateRecallItem({ from: 'card', text: group.text }, group);
 const pi = annotateRecallItem({ from: 'card', text: priv.text }, priv);
 check('A1 recall item 群来源补 speaker/groupId/originKind', gi.speaker === '群友A' && gi.groupId === '1000000002' && gi.originKind === 'group');
-check('A2 recall item 非群来源仍带 originKind/speaker', pi.originKind === 'private' && pi.speaker === '老大');
+check('A2 recall item 非群来源仍带 originKind/speaker', pi.originKind === 'private' && pi.speaker === '管理员');
 check('A3 无 record 时原样返回', annotateRecallItem({ from: 'archive', text: 'x' }, null).text === 'x');
 
 check('W1 bridge import + recall 两处 annotate', /from '\.\/memory-attribution\.js'/.test(BRIDGE) && (BRIDGE.match(/annotateRecallItem\(/g) || []).length >= 2);

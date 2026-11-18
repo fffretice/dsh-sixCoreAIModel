@@ -48,20 +48,20 @@ const labeled = [{
     qq: { id: '10001', name: '阿零', groups: ['100000004'] },
     bili: { id: '87654321', name: '零酱' },
   },
-  label: '小零',
+  label: '群友D',
   source: 'manual',
   confidence: 1,
   verified: true,
 }];
 const qqLabeled = buildQqAlignmentBrief({ links: labeled });
-assert.ok(qqLabeled.includes('以后只叫 TA「小零」'), 'QQ 简报必须写明只用称呼');
+assert.ok(qqLabeled.includes('以后只叫 TA「群友D」'), 'QQ 简报必须写明只用称呼');
 assert.ok(qqLabeled.includes('10001'), '有称呼时要带 QQ 号：只能按 ID 对上，不能靠会变的群昵称');
 assert.ok(qqLabeled.includes('优先于人格卡'), '称呼规则要高于人格卡称呼表');
 assert.ok(qqLabeled.includes('绝对不要念出来'), '带号码时必须重申不要念号码');
 
 const biliLabeled = buildBiliAlignmentBrief({ links: labeled });
-assert.ok(biliLabeled.includes('小零'), 'B站 简报也要带称呼');
-assert.ok(biliLabeled.includes('以后只叫 TA「小零」'));
+assert.ok(biliLabeled.includes('群友D'), 'B站 简报也要带称呼');
+assert.ok(biliLabeled.includes('以后只叫 TA「群友D」'));
 assert.ok(!biliLabeled.includes('10001'), 'B站 简报仍然不能出现 QQ 号');
 assert.ok(biliLabeled.includes('优先于人格卡'));
 

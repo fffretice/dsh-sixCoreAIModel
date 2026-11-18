@@ -33,7 +33,7 @@ const clip = (s, n) => { const t = String(s || ''); return t.length > n ? t.slic
 /** 从请求句里抽「想要什么」：去掉称呼/礼貌词，保留动作短语。 */
 export function extractWant(text = '', kind = 'do') {
   let t = strip(text)
-    .replace(/^(老大|主人|群友)[，,、\s]*/u, '')
+    .replace(/^(管理员|主人|群友)[，,、\s]*/u, '')
     .replace(/^你(?:这个?|个)?[，,、\s]*/u, '')
     .replace(/^(能不能|可不可以|可以|能不能麻烦你|麻烦你|请你|帮忙|帮我|替我|给我)[，,、\s]*/u, '')
     .replace(/[。！!～~]+$/u, '').trim();
@@ -75,7 +75,7 @@ export function detectRequest(text, ctx = {}) {
   if (isOwner) reasons.push('owner');
   else reasons.push('group-member');
   const want = extractWant(t, kind).replace(/[。！？!?～~]+$/u, '').trim();
-  const requester = String(ctx.sender || (isOwner ? '老大' : '群友')).slice(0, 24);
+  const requester = String(ctx.sender || (isOwner ? '管理员' : '群友')).slice(0, 24);
   // 拒绝余地：只作信息，不是指令
   let refusalRoom = '中'; let roomWhy = '';
   if (kind === 'answer') { refusalRoom = '高'; roomWhy = '只是问事，答一句或不答都不算拒绝'; }

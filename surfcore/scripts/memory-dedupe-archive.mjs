@@ -23,7 +23,7 @@
  *   cp memory-card-full-stats.json /tmp/mem-dedupe-test/
  *   node scripts/memory-dedupe-archive.mjs --file /tmp/mem-dedupe-test/memory-card-full.jsonl --apply
  *
- * 生产执行窗口（lead 2026-11-08 定）：停桥接 → 通知老大重启 DSH → DSH 停着时跑 --apply
+ * 生产执行窗口（lead 2026-11-08 定）：停桥接 → 通知管理员重启 DSH → DSH 停着时跑 --apply
  *   → 校验 → 起 DSH。脚本本身 2 遍扫描 ≈ 数秒。
  */
 import fs from 'node:fs';

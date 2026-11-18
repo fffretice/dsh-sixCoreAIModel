@@ -48,7 +48,7 @@ function inferKind(reason) {
   const r = String(reason)
   if (/学|教程|怎么|原理|工具|插件|做法/.test(r)) return '想学'
   if (/再看|好笑|治愈|震撼|好听|想看第二遍|重看/.test(r)) return '想再看'
-  if (/鱼|鲸|拟人|我自己|人格|AI 人|桌宠/.test(r)) return '和我有关'
+  if (/鱼|招牌词|拟人|我自己|人格|AI 人|桌宠/.test(r)) return '和我有关'
   if (/提|引用|日记|分享里|以后说/.test(r)) return '以后要提'
   return '其他'
 }

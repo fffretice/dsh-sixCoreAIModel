@@ -158,14 +158,14 @@ export function projectAdminSave({ current, qq, bili, unified } = {}) {
 
 /** 提示词里怎么称呼管理员：称呼 > B站昵称 > 管理员。 */export function adminDisplayName(admin) {
   const a = normalizeAdmin(admin);
-  return a.displayName || a.biliName || '老大';
+  return a.displayName || a.biliName || '管理员';
 }
 
-/** 主人消息的标记。称呼可配：群里叫「老大」，私聊叫「主人」。
+/** 主人消息的标记。称呼可配：群里叫「管理员」，私聊叫「主人」。
  *  以前写死「管理员」，她就照着标签喊——2026-10-29 踩过这个坑。 */
-export function adminMarker(admin, callName = '老大') {
+export function adminMarker(admin, callName = '管理员') {
   const a = normalizeAdmin(admin);
-  const name = String(callName || '老大').trim() || '老大';
+  const name = String(callName || '管理员').trim() || '管理员';
   // 没配置但也不该凭空加标记：调用方会自己拼称呼，这里只负责「温柔」那种加粗前缀。
   return a.gentle && adminConfigured(a) ? `【${name}·温柔】` : '';
 }

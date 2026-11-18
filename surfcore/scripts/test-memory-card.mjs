@@ -14,6 +14,7 @@ import {
   resolveMemoryCardPaths, scoreMemory, shouldNotifyOwner, targetClarity,
   NORMALIZE_RECORDS_SAFETY_CAP, INBOX_SEEN_KEEP,
   originKindOf, canEnterGroupView, isRecapStatLine,
+  isNoteRecord, normalizeRecordStatus, extractQuotes, addManualMemory,
 } from '../src/memory-card.js';
 
 const temps = [];
@@ -62,7 +63,7 @@ test('重要度：和主人的情绪互动最重，第一次见面是永久锚�
 test('QQ inbox：投递一次就入库；重复不重复占容量；第一句主人消息被钉成锚点', () => {
   const card = createEmptyCard(NOW);
   const lines = [
-    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: 'omm', senderId: '2373982492', text: '角色在吗', isOwner: false, direct: true }),
+    JSON.stringify({ at: '2026-10-20T10:00:00+08:00', kind: 'group', sender: 'omm', senderId: '1000000007', text: '角色在吗', isOwner: false, direct: true }),
     JSON.stringify({ at: '2026-10-20T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
     // 同一句话隔天重复：不重复占容量（同一段 2 天窗口内按文本去重）
     JSON.stringify({ at: '2026-10-21T10:01:00+08:00', kind: 'private', sender: '主人', senderId: '10001', text: '角色，今天过得怎么样呀', isOwner: true, private: true, direct: true }),
@@ -85,7 +86,7 @@ test('QQ inbox：投递一次就入库；重复不重复占容量；第一句主
 test('B站摄取出模块，且 sourceId 去重；时政/八卦只留在本地不进提示词', () => {
   const card = createEmptyCard(NOW);
   const entries = [
-    { id: 'bv:BV1aaa', type: 'video', title: '鲸鱼娘学黑话', text: '有趣', reason: 'AI 运营号自己学黑话，诚实又好笑', score: 14, favorite: false, at: '2026-10-21T20:00:00+08:00' },
+    { id: 'bv:BV1aaa', type: 'video', title: '招牌词娘学黑话', text: '有趣', reason: 'AI 运营号自己学黑话，诚实又好笑', score: 14, favorite: false, at: '2026-10-21T20:00:00+08:00' },
     { id: 'bv:BV1bbb', type: 'dynamic', title: '午mer', text: '今天看到一条很好笑的二创', score: 12, favorite: true, at: '2026-10-22T09:00:00+08:00' },
     { id: 'bv:BV1ccc', type: 'video', title: '某国大选新闻', text: '时政', reason: '新闻', score: 3, at: '2026-10-22T08:00:00+08:00' },
   ];
@@ -95,7 +96,7 @@ test('B站摄取出模块，且 sourceId 去重；时政/八卦只留在本地�
   const again = ingestBiliEntries(card, entries, CFG, NOW);
   assert.equal(again.added, 0);
   const biliPrompt = renderMemoryCard(card, { config: CFG, platform: 'bili', maxChars: 2000, now: NOW });
-  assert.match(biliPrompt, /鲸鱼娘学黑话/);
+  assert.match(biliPrompt, /招牌词娘学黑话/);
   assert.doesNotMatch(biliPrompt, /某国大选新闻/);
   const full = renderMemoryCard(card, { config: CFG, full: true, now: NOW + 10 * DAY_MS });
   assert.match(full, /B站（冲浪）/);
@@ -106,12 +107,12 @@ test('隐私：QQ 私事默认不进 B站 提示词；密钥/手机号在入库�
   ingestInboxLines(card, [
     JSON.stringify({
       at: '2026-10-22T10:00:00+08:00', kind: 'private', sender: '主人', senderId: '10001',
-      text: '这个 token=sk-abcdefghijklmnop 和手机 13800138000 别发出去；今天想你了', isOwner: true, private: true, direct: true,
+      text: '这个 token=sk-abcdefghijklmnop 和手机 13800138000 别发出去；今天想你了', isOwner: true, private: true, direct: true, // release-audit: allow（测试夹具，假值）
     }),
   ], CFG, NOW);
   const owner = card.records.find((r) => r.tags.includes('owner'));
   assert.ok(owner);
-  assert.doesNotMatch(owner.text, /sk-abcdefghijklmnop/);
+  assert.doesNotMatch(owner.text, /sk-abcdefghijklmnop/);   // release-audit: allow（测试夹具，假值）
   assert.doesNotMatch(owner.text, /13800138000/);
   assert.match(owner.text, /\[已隐藏\]|\[手机号已隐藏\]/);
   const biliPrompt = renderMemoryCard(card, { config: CFG, platform: 'bili', maxChars: 2000, now: NOW });
@@ -334,16 +335,16 @@ test('全量卡：按关键词召回，容量按 JSONL 字节数算', () => {
     createdAt: NOW - 2 * DAY_MS,
   }, CFG, NOW);
   addMemoryRecord(card, {
-    source: 'bili-video', sourceId: 'bili:recall', text: '在 B站 看了《鲸鱼娘学黑话》，很好笑', title: '鲸鱼娘学黑话', score: 12, scope: 'bili', platform: 'bili',
+    source: 'bili-video', sourceId: 'bili:recall', text: '在 B站 看了《招牌词娘学黑话》，很好笑', title: '招牌词娘学黑话', score: 12, scope: 'bili', platform: 'bili',
     createdAt: NOW - DAY_MS,
   }, CFG, NOW);
   assert.equal(archiveDecayedToFull(paths, card, CFG, NOW), 2);
   const owner = recallFullMemory(paths, '第一次', { limit: 5 });
   assert.ok(owner.length >= 1);
   assert.match(owner[0].text, /第一次见到你/);
-  const bili = recallFullMemory(paths, '鲸鱼娘', { limit: 5 });
+  const bili = recallFullMemory(paths, '招牌词娘', { limit: 5 });
   assert.ok(bili.length >= 1);
-  assert.match(bili[0].text, /鲸鱼娘/);
+  assert.match(bili[0].text, /招牌词娘/);
   const status = fullMemoryCardStatus(paths, normalizeMemoryCardConfig({ fullMaxBytes: 10 * 1024 * 1024 }), NOW);
   assert.equal(status.records, 2);
   assert.ok(status.bytes > 0);
@@ -475,7 +476,7 @@ test('合并事件：任意多条记忆可合并为一个，默认置顶，不�
   const card = createEmptyCard(NOW - 40 * DAY_MS);
   const owner = addOwnerRecord(card, 0, '最初的主人互动');
   const b1 = addMemoryRecord(card, {
-    source: 'bili-video', sourceId: 'merge:b1', text: '在 B 站看了《鲸鱼娘》', title: '鲸鱼娘',
+    source: 'bili-video', sourceId: 'merge:b1', text: '在 B 站看了《招牌词娘》', title: '招牌词娘',
     score: 10, scope: 'bili', platform: 'bili', createdAt: NOW - 10 * DAY_MS, lastSeenAt: NOW - 10 * DAY_MS,
   }, CFG, NOW).record;
   const b2 = addMemoryRecord(card, {
@@ -495,7 +496,7 @@ test('合并事件：任意多条记忆可合并为一个，默认置顶，不�
   assert.equal(event.pinned, true);
   assert.equal(event.tags.includes('merged'), true);
   assert.equal(event.scope, 'bili');
-  assert.match(event.text, /鲸鱼娘/);
+  assert.match(event.text, /招牌词娘/);
   assert.match(event.text, /猫猫/);
   assert.equal(card.meta.firstMetEventId, firstBefore, '合并普通记忆不应改变初次相遇');
   assert.equal(owner.firstMet, true);
@@ -580,8 +581,8 @@ test('桌宠对话：同一张记忆卡、platform/scope 独立，默认不进 B
   const t0 = NOW;
   const lines = [
     JSON.stringify({ at: new Date(t0).toISOString(), platform: 'pet', kind: 'private', sender: '主人', isOwner: true, private: true, direct: true, conversationKey: 'pet', text: '今天桌面上陪我一会儿好不好呀' }),
-    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
-    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '小咪', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
+    JSON.stringify({ at: new Date(t0 + 30_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: 'hao呀，wo就在桌面上陪你 mer' }),
+    JSON.stringify({ at: new Date(t0 + 60 * 60_000).toISOString(), platform: 'pet', kind: 'private', sender: '角色', isSelf: true, private: true, conversationKey: 'pet', text: '咪…突然想跟你说句话，今天有点想黏你' }),
   ];
   const res = ingestInboxLines(card, lines, CFG, t0 + 2 * 60 * 60_000);
   assert.equal(res.added, 2, '主人一条 + 主动搭话一条；她的回复并进主人记录');
@@ -642,4 +643,214 @@ test('桌宠记忆在提示词预算里不会被普通最近记忆挤掉', () =>
   const out = renderMemoryCard(card, { platform: 'qq', config: cfg, maxChars: 900, now: NOW + 60_000 });
   assert.match(out, /桌宠（私下相处）/, '桌宠小节必须出现在 QQ 注入块里');
   assert.match(out, /桌宠预算验证/, '预算紧张时也不能先砍掉桌宠记忆');
+});
+
+// ── 2026-11-08（记忆机制升级 P0）：两条防回归 ─────────────────────────────
+// 历史 bug：normalizeCard 硬帽 2000（config 已 5000）+ inboxSeen 3000（读取窗口 4000），
+// 导致老记录每 10 分钟被重新摄入、重归档，全量归档 96% 是重复行。
+test('P0：loadMemoryCard 不再把卡砍回 2000（交给 config maxRecords）', () => {
+  assert.equal(NORMALIZE_RECORDS_SAFETY_CAP, 20000);
+  const paths = resolveMemoryCardPaths(tempDir());
+  const raw = createEmptyCard(NOW);
+  for (let i = 0; i < 2500; i += 1) {
+    raw.records.push({
+      id: `mem_p0_${i}`,
+      source: 'qq-group',
+      text: `第 ${i} 条旧记忆，用来验证 load 不再硬裁 2000。`,
+      createdAt: new Date(NOW - i * 1000).toISOString(),
+      lastSeenAt: new Date(NOW - i * 1000).toISOString(),
+    });
+  }
+  fs.writeFileSync(paths.json, JSON.stringify(raw));
+  const loaded = loadMemoryCard(paths);
+  assert.equal(loaded.records.length, 2500, 'loadMemoryCard 不应再把 2500 条裁成 2000');
+});
+
+test('P0：inboxSeen 至少保留 5000 键（≥ 插件 4000 行读取窗口）', () => {
+  assert.equal(INBOX_SEEN_KEEP, 5000);
+  const card = createEmptyCard(NOW);
+  // 模拟「已经看过 3000 行」的旧卡：新摄入一行后键集合必须继续增长（旧实现会卡在 3000）
+  card.meta.inboxSeen = Array.from({ length: 3000 }, (_, i) => `seedkey${i}`);
+  const line = {
+    at: new Date(NOW).toISOString(),
+    platform: 'qq', kind: 'group', sender: '群友', senderId: '42',
+    conversationKey: 'group:456', private: false, direct: false,
+    text: '这一行用于验证 inboxSeen 不再卡在 3000 键',
+  };
+  ingestInboxLines(card, [JSON.stringify(line)], CFG, NOW);
+  assert.equal(card.meta.inboxSeen.length, 3001, 'inboxSeen 应该保留超过 3000 键（旧实现会砍回 3000）');
+  const before = card.meta.inboxSeen.length;
+  ingestInboxLines(card, [JSON.stringify(line)], CFG, NOW + 60_000);
+  assert.equal(card.meta.inboxSeen.length, before, '已摄入过的行不应重复进 inboxSeen');
+});
+
+// ── 2026-11-08（task-12）：跨会话分视图 + 统计句清理 ─────────────────────
+test('task-12：originKind 推断与群视图准入', () => {
+  assert.equal(originKindOf({ conversationKey: 'private:123' }), 'private');
+  assert.equal(originKindOf({ conversationKey: 'group:456' }), 'group');
+  assert.equal(originKindOf({ private: true }), 'private');
+  assert.equal(originKindOf({ groupId: '456' }), 'group');
+  assert.equal(originKindOf({ platform: 'bili' }), 'public');
+  assert.equal(originKindOf({}), 'unknown');
+  assert.equal(originKindOf({ originKind: 'mixed', conversationKey: 'group:1' }), 'mixed');
+  assert.equal(canEnterGroupView({ conversationKey: 'group:456' }), true);
+  assert.equal(canEnterGroupView({ platform: 'bili' }), true);
+  assert.equal(canEnterGroupView({ conversationKey: 'private:123' }), false);
+  assert.equal(canEnterGroupView({}), false);
+});
+
+test('task-12：群聊视图排除私聊/未知来源，私聊视图不筛', () => {
+  const card = createEmptyCard(NOW);
+  addMemoryRecord(card, {
+    source: 'qq-owner', text: '私聊里说的卡池11/16，群友不懂', isOwner: true, isPrivate: true,
+    direct: true, conversationKey: 'private:123', private: true, createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  addMemoryRecord(card, {
+    source: 'qq-group', text: '群里聊的2027年新企划', conversationKey: 'group:456',
+    createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  addMemoryRecord(card, {
+    source: 'manual', text: '来源不明确的旧记录', manual: true, createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  addMemoryRecord(card, {
+    source: 'bili-video', text: 'B站刷到的公开视频', scope: 'bili', platform: 'bili',
+    createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+
+  const group = renderMemoryCard(card, { config: CFG, platform: 'qq', maxChars: 3000, perspective: 'group', now: NOW });
+  assert.match(group, /2027年新企划/, '群聊记录应出现在群视图');
+  assert.match(group, /B站刷到的公开视频/, '公开来源应出现在群视图');
+  assert.doesNotMatch(group, /卡池11\/16/, '私聊记录不应出现在群视图');
+  assert.doesNotMatch(group, /来源不明确的旧记录/, '未知来源默认不进群视图');
+  assert.doesNotMatch(group, /私聊里的，群里别提/, '不该再靠文本标签兜底');
+  assert.match(group, /群聊/);
+
+  const priv = renderMemoryCard(card, { config: CFG, platform: 'qq', maxChars: 3000, now: NOW });
+  assert.match(priv, /卡池11\/16/, '私聊视图应保留私聊内容');
+  assert.match(priv, /2027年新企划/, '私聊视图也应能看到群聊内容');
+  assert.match(priv, /来源不明确的旧记录/, '私聊视图不筛旧记录');
+});
+
+test('task-12：统计句不再进注入视图（即使卡里残留）', () => {
+  const card = createEmptyCard(NOW);
+  addMemoryRecord(card, {
+    source: 'qq-group', text: '私聊里聊到「x」；一共 3 句，你自己说了 89 句。',
+    title: '最近回顾 · 私聊', conversationKey: 'group:456', manualImportance: 72,
+    createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  const prompt = renderMemoryCard(card, { config: CFG, platform: 'qq', maxChars: 3000, now: NOW });
+  assert.doesNotMatch(prompt, /一共 3 句/, '注入视图不应包含统计句');
+  const full = renderMemoryCard(card, { config: CFG, full: true, now: NOW });
+  assert.match(full, /一共 3 句/, '完整卡（管理端）仍保留原始记录');
+});
+
+test('task-12：迁移清统计句 + 旧回顾补来源 + 取消置顶 + 迁移前备份', () => {
+  const paths = resolveMemoryCardPaths(tempDir());
+  const card = createEmptyCard(NOW);
+  const stat = addMemoryRecord(card, {
+    source: 'manual', text: '私聊里聊到「x」；一共 3 句，你自己说了 89 句。',
+    title: '最近回顾 · 私聊', manualImportance: 72, createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  stat.record.pinned = true;
+  stat.record.anchor = true;
+  const legacyPriv = addMemoryRecord(card, {
+    source: 'manual', text: '他说过「下次早点睡」；我说过「好」。',
+    title: '昨天你们聊过（私聊）', manualImportance: 72, createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  legacyPriv.record.pinned = true;
+  const legacyGroup = addMemoryRecord(card, {
+    source: 'manual', text: '群里聊到「卡池」和「周年」。',
+    title: '最近回顾 · 群 1000000002', manualImportance: 72, createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  legacyGroup.record.pinned = true;
+  fs.writeFileSync(paths.json, JSON.stringify(card)); // 测试夹具：模拟生产卡（测试环境临时目录）
+
+  const result = maintainMemoryCard({ paths, config: CFG, inboxLines: [], now: NOW + 60_000 });
+  const out = result.card;
+  assert.equal(out.records.filter((r) => isRecapStatLine(r.text)).length, 0, '统计句应从热卡清掉');
+  const priv = out.records.find((r) => r.title === '昨天你们聊过（私聊）');
+  assert.equal(originKindOf(priv), 'private', '旧私聊回顾应补成 private');
+  const grp = out.records.find((r) => String(r.title).startsWith('最近回顾 · 群'));
+  assert.equal(originKindOf(grp), 'group', '旧群回顾应补成 group');
+  assert.equal(grp.conversationKey, 'group:1000000002', '旧群回顾应补上 conversationKey');
+  assert.equal(priv.pinned, false, '回顾摘要不应继续置顶');
+  assert.equal(grp.pinned, false, '回顾摘要不应继续置顶');
+  assert.ok(out.meta.crossViewMigrationAt, '应写入迁移时间戳');
+  assert.ok(out.meta.crossViewMigration.backup, '应记录迁移前备份路径');
+  assert.ok(fs.existsSync(out.meta.crossViewMigration.backup), '迁移前备份文件应存在');
+});
+
+// ── 2026-11-09（task-9 B2）：记录状态 checked/unconfirmed/superseded ─────────────
+test('B2：状态默认——原始 transcript=checked，manual/回顾笔记=unconfirmed', () => {
+  const card = createEmptyCard(NOW);
+  const raw = addMemoryRecord(card, {
+    source: 'qq-group', text: '群里的一句原话', conversationKey: 'group:1', createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  assert.equal(raw.record.status, 'checked');
+  assert.equal(raw.record.statusSource, 'transcript');
+  assert.equal(isNoteRecord(raw.record), false);
+  const note = addManualMemory(card, { text: '昨天你们聊过（私聊）他说过「早点睡」', title: '最近回顾 · 私聊' }, CFG, NOW);
+  assert.equal(note.record.status, 'unconfirmed');
+  assert.equal(isNoteRecord(note.record), true);
+  assert.equal(normalizeRecordStatus('nonsense'), '');
+  assert.deepEqual(extractQuotes('他说过「今晚早点睡」；还说过「明天再见」'), ['今晚早点睡', '明天再见']);
+});
+
+test('B2：注入视图只给笔记加 [未核实]，原始记录不加；superseded 不进注入但完整卡保留', () => {
+  const card = createEmptyCard(NOW);
+  addMemoryRecord(card, {
+    source: 'qq-group', text: '原始记录：今天群里聊了学马卡池', conversationKey: 'group:1', createdAt: NOW, lastSeenAt: NOW,
+  }, CFG, NOW);
+  const note = addManualMemory(card, { text: '资料源：学马剧情 wiki 可用', title: '资料源：学马剧情' }, CFG, NOW);
+  note.record.status = 'unconfirmed';
+  const obsolete = addManualMemory(card, { text: '过期的旧笔记：头像还是默认图', title: '资料源：头像旧笔记' }, CFG, NOW);
+  obsolete.record.status = 'superseded';
+  const prompt = renderMemoryCard(card, { config: CFG, platform: 'qq', maxChars: 3000, now: NOW });
+  assert.match(prompt, /\[未核实\]/, '未核实笔记应有标记');
+  assert.doesNotMatch(prompt, /\[未核实\] 原始记录/, '原始记录不应被标记');
+  assert.doesNotMatch(prompt, /过期的旧笔记/, 'superseded 笔记不进注入视图');
+  const full = renderMemoryCard(card, { config: CFG, full: true, now: NOW });
+  assert.match(full, /过期的旧笔记/, '完整卡仍保留 superseded 笔记');
+  assert.match(full, /\[已过期\]/, '完整卡能看到已过期标记');
+});
+
+test('B2：迁移做笔记引文核对——能在原话语料里找到→checked+verifiedAt，找不到保持 unconfirmed', () => {
+  const paths = resolveMemoryCardPaths(tempDir());
+  const card = createEmptyCard(NOW);
+  const okNote = addManualMemory(card, { text: '管理员说过「以后接住这个词别用了」', title: '资料源：说话习惯' }, CFG, NOW);
+  okNote.record.status = 'unconfirmed';
+  const badNote = addManualMemory(card, { text: '管理员说过「这句原话根本不存在」', title: '资料源：不存在的笔记' }, CFG, NOW);
+  badNote.record.status = 'unconfirmed';
+  fs.writeFileSync(paths.json, JSON.stringify(card)); // 测试夹具（临时目录）
+  const inboxLines = [JSON.stringify({ at: new Date(NOW).toISOString(), kind: 'group', sender: '管理员', text: '以后接住这个词别用了' })];
+  const result = maintainMemoryCard({ paths, config: CFG, inboxLines, now: NOW + 60_000 });
+  const out = result.card;
+  const ok = out.records.find((r) => r.title === '资料源：说话习惯');
+  const bad = out.records.find((r) => r.title === '资料源：不存在的笔记');
+  assert.equal(ok.status, 'checked', '引文能对上应升级 checked');
+  assert.ok(ok.verifiedAt, '应有 verifiedAt');
+  assert.equal(bad.status, 'unconfirmed', '引文对不上应保持 unconfirmed');
+  assert.equal(bad.verifiedAt, '', '未核对不应有 verifiedAt');
+});
+
+test('task-28：口径版本字段 round-trip（supersededAt/conflictWith/topicKey/stance）', () => {
+  const dir = tempDir();
+  const paths = resolveMemoryCardPaths(dir);
+  const card = createEmptyCard(NOW);
+  const { record } = addMemoryRecord(card, {
+    source: 'qq-owner', text: '以后发图之前先看一眼内容', conversationKey: 'private:1', createdAt: NOW - 86400000, lastSeenAt: NOW,
+  }, CFG, NOW);
+  record.supersededAt = new Date(NOW).toISOString();
+  record.supersededBy = 'mem_new';
+  record.conflictWith = ['mem_new'];
+  record.topicKey = 'image_caption';
+  record.stance = 'forbid';
+  fs.writeFileSync(paths.json, JSON.stringify(card));
+  const loaded = loadMemoryCard(paths);
+  const got = loaded.records.find((r) => r.id === record.id);
+  assert.equal(got.supersededAt, record.supersededAt);
+  assert.equal(got.supersededBy, 'mem_new');
+  assert.deepEqual(got.conflictWith, ['mem_new']);
+  assert.equal(got.topicKey, 'image_caption');
+  assert.equal(got.stance, 'forbid');
 });

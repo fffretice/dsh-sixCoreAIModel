@@ -30,7 +30,7 @@ test('task-12：群聊视角主题目录不含私聊样本，私聊版保留完�
   }, CFG, NOW);
   // B站公开来源（也算群视图可用样本）
   addMemoryRecord(card, {
-    source: 'bili-video', text: 'B站头像相关：鲸鱼娘的头像合集', scope: 'bili', platform: 'bili',
+    source: 'bili-video', text: 'B站头像相关：招牌词娘的头像合集', scope: 'bili', platform: 'bili',
     createdAt: NOW - 120_000, lastSeenAt: NOW - 120_000,
   }, CFG, NOW);
 
